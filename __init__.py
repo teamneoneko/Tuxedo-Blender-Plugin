@@ -89,7 +89,9 @@ def register():
         import subprocess
         import sys
         if platform == "linux":
-            batch_path = dirname(__file__)+"/assets/tools/readsteam.bat"
+            batch_path = dirname(__file__)+"/assets/tools/readsteamlinux.sh"
+        elif platform == "Darwin":
+            batch_path = dirname(__file__)+"/assets/tools/readsteammac.sh"
         else:
             batch_path = dirname(__file__)+"/assets/tools/readregistrysteamkey.bat"
         process = subprocess.Popen([batch_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
