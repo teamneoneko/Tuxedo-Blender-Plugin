@@ -1,2 +1,2 @@
 #!/bin/sh
-echo "~/.local/share/Steam/"
+echo "~/steam/root/"
