@@ -1,3 +1,5 @@
+import collections
+import traceback
 import bpy
 import addon_utils
 
@@ -16,8 +18,36 @@ from .class_register import wrapper_registry
 
 from bpy.types import UIList, Operator, Panel
 from bpy_extras.io_utils import ImportHelper
+from .globals import UITab
 
 button_height = 1
+
+
+class Open_GPU_Settings(Operator):
+    bl_idname = "tuxedo_bake.open_gpu_settings"
+    bl_label = "Open GPU Settings (Top of the page)"
+
+    def execute(self, context):
+        bpy.ops.screen.userpref_show()
+        context.preferences.active_section = 'SYSTEM'
+
+        return{'FINISHED'}
+
+class Choose_Steam_Library(Operator, ImportHelper):
+    bl_idname = "tuxedo_bake.choose_steam_library"
+    bl_label = "Choose Steam Library"
+
+    directory: bpy.props.StringProperty(subtype='DIR_PATH')
+
+    @classmethod
+    def poll(cls, context):
+        bake_platforms = context.scene.bake_platforms
+        index = context.scene.bake_platform_index
+
+        return bake_platforms[index].export_format == "GMOD"
+    def execute(self, context):
+        context.scene.bake_steam_library = self.directory
+        return{'FINISHED'}
 
 @wrapper_registry
 class ErrorNoSource_OT_Tuxedo(Operator):
@@ -241,16 +271,21 @@ class ToolPanel(Panel):
         row.scale_y = 1.2
         row.operator(FitClothes.bl_idname, icon='MOD_CLOTH')
 
-uitabs = {}
-choices = []
+uitabs: dict[str, UITab] = {}
+choices: list[UITab] = []
 
-def register_ui_tab(cls):
+def register_ui_tab(cls: UITab):
     print("registering a ui tab with enum "+cls.bl_enum)
     choices.append(cls)
     uitabs[cls.bl_enum] = cls
     return cls
 
-def tab_enums(self, context):
+def tab_enums(self, context: bpy.types.Context) -> collections.abc.Iterable[
+        tuple[str, str, str]
+        | tuple[str, str, str, int]
+        | tuple[str, str, str, str, int]
+        | None
+    ]:
     options = []
     for k,cls in enumerate(choices):
         if cls.poll(cls, context):
@@ -398,8 +433,10 @@ class BakePanel(Panel):
             except Exception as e:
                 section = box.column(heading ="ERROR")
                 section.label(text=t('BakePanel.panel_render_error'), icon='ERROR')
-                section = section.row(align=True)
-                section.label(text=str(e))
+                row = section.row(align=True)
+                row.label(text=traceback.format_exc())
+                row = section.row(align=True)
+                row.label(text=f"enums: {tab_enums(self,context)}")
                 
             #bake warnings
             if context.preferences.addons['cycles'].preferences.compute_device_type == 'NONE' and context.scene.bake_device == 'GPU':
