@@ -90,7 +90,7 @@ def register():
         import sys
         if platform == "linux":
             batch_path = dirname(__file__)+"/assets/tools/readsteamlinux.sh"
-        elif platform == "Darwin":
+        elif platform == "darwin":
             batch_path = dirname(__file__)+"/assets/tools/readsteammac.sh"
         else:
             batch_path = dirname(__file__)+"/assets/tools/readregistrysteamkey.bat"
