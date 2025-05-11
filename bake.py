@@ -1439,6 +1439,10 @@ class BakeButton(bpy.types.Operator):
             shutil.rmtree(bpy.path.abspath("//Tuxedo Bake/"))
         os.mkdir(bpy.path.abspath("//Tuxedo Bake/"))
 
+        for obj in get_objects(collection.all_objects, filter_func=lambda obj: core.has_shapekeys(obj)):
+            for key in obj.data.shape_keys.key_blocks:
+                if ('ambient' in key.name.lower() and 'occlusion' in key.name.lower()) or key.name[-3:] == '_ao':
+                    key.value = 1.0
         # Perform 'Bake' renders: non-normal that never perform ray-tracing
         for (bake_conditions, bake_name, bake_type, bake_pass_filter, background_color,
              desired_inputs, use_linear, invert, flat_ior) in [
@@ -1533,7 +1537,7 @@ class BakeButton(bpy.types.Operator):
                     # values... but generally that's not what you should do anyway
                     for key in obj.data.shape_keys.key_blocks:
                         # Always ignore '_bake' keys so they're baked in
-                        if key.name[-5:] != '_bake':
+                        if key.name[-5:] != '_bake' and (not(('ambient' in key.name.lower() and 'occlusion' in key.name.lower()) or key.name[-3:] == '_ao')):
                             shapekey_values[key.name] = key.value
                             key.value = 0.0
 
@@ -1546,12 +1550,17 @@ class BakeButton(bpy.types.Operator):
         if apply_keys:
             for obj in get_objects(collection.all_objects, filter_func=lambda obj: core.has_shapekeys(obj)):
                 meshobj: bpy.types.Object = obj
+                for key in obj.data.shape_keys.key_blocks:
+                    if (('ambient' in key.name.lower() and 'occlusion' in key.name.lower()) or key.name[-3:] == '_ao'):
+                        key.value = 0.0
                 core.add_shapekey(meshobj, "Tuxedo applykey", True)
                 core.apply_shapekey_to_basis(context, meshobj, "Tuxedo applykey")
                 obj.active_shape_key_index = 0
                 # Ensure all keys are now set to 0.0
                 for key in obj.data.shape_keys.key_blocks:
                     key.value = 0.0
+                    if (('ambient' in key.name.lower() and 'occlusion' in key.name.lower()) or key.name[-3:] == '_ao'):
+                        key.value = 1.0
 
         # Joining meshes causes issues with materials. Instead. apply location for all meshes, so object and world space are the same
         for obj in get_objects(collection.all_objects):
@@ -1598,11 +1607,6 @@ class BakeButton(bpy.types.Operator):
             if bake_conditions:
                 if world_color:
                      tuxedo_world.color = world_color
-                # Enable all AO keys
-                for obj in get_objects(collection.all_objects, filter_func=lambda obj: core.has_shapekeys(obj)):
-                    for key in obj.data.shape_keys.key_blocks:
-                        if ('ambient' in key.name.lower() and 'occlusion' in key.name.lower()) or key.name[-3:] == '_ao':
-                            key.value = 1.0
 
                 # If conditions are met, move eyes up by 25m (so they don't get shadows)
                 if displace_eyes:
@@ -1638,12 +1642,6 @@ class BakeButton(bpy.types.Operator):
                     for matgroup in material_name_groups.keys():
                         self.filter_image(context, "SCRIPT_" + bake_name + str(matgroup) + ".png", BakeButton.denoise_create, matgroupnum=matgroup
                                           )
-                # Disable all AO keys
-                for obj in get_objects(collection.all_objects):
-                    if core.has_shapekeys(obj):
-                        for key in obj.data.shape_keys.key_blocks:
-                            if ('ambient' in key.name.lower() and 'occlusion' in key.name.lower()) or key.name[-3:] == '_ao':
-                                key.value = 0.0
 
         # Remove multires modifiers
         for obj in get_objects(collection.all_objects):
@@ -1676,6 +1674,7 @@ class BakeButton(bpy.types.Operator):
             bpy.ops.mesh.delete(type="VERT")
             bpy.ops.object.mode_set(mode="OBJECT")
 
+        
         ########### BEGIN PLATFORM SPECIFIC CODE ###########
         for platform_number, platform in enumerate(context.scene.bake_platforms):
             image_extension = ""
@@ -2230,9 +2229,6 @@ class BakeButton(bpy.types.Operator):
                                 obj.data.uv_layers["Tuxedo UV Super"].active_render = True
                             else:
                                 obj.data.uv_layers["Tuxedo UV"].active_render = True
-                
-                
-                if pass_normal:
                     # Bake tangent normals
                     image = bpy.data.images[platform_img("normal"+str(group_num))]
                     image.colorspace_settings.name = 'Non-Color'
@@ -2446,7 +2442,7 @@ class BakeButton(bpy.types.Operator):
                 if mesh.type == 'MESH' and mesh.data.shape_keys is not None:
                     names = [key.name for key in mesh.data.shape_keys.key_blocks]
                     for name in names:
-                        if name[-5:] == "_bake":
+                        if name[-5:] == "_bake" or (('ambient' in key.name.lower() and 'occlusion' in key.name.lower()) or key.name[-3:] == '_ao'):
                             mesh.shape_key_remove(key=mesh.data.shape_keys.key_blocks[name])
 
             # Remove all materials for export - blender will try to embed materials but it doesn't work with our setup
