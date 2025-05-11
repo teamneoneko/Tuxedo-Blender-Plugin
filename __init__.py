@@ -5,6 +5,7 @@ from .tools import ConvertToSecondlifeButton, FitClothes, GenerateTwistBones, Tw
 from .tools import FT_OT_CreateShapeKeys, SRanipal_Labels
 from .properties import register_properties
 from bpy.types import Scene
+from sys import platform
 
 classes = (
     # Auto decimate fns
@@ -87,7 +88,10 @@ def register():
     try:
         import subprocess
         import sys
-        batch_path = dirname(__file__)+"/assets/tools/readregistrysteamkey.bat"
+        if platform == "linux":
+            batch_path = dirname(__file__)+"/assets/tools/readsteam.bat"
+        else:
+            batch_path = dirname(__file__)+"/assets/tools/readregistrysteamkey.bat"
         process = subprocess.Popen([batch_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = process.communicate()
         
