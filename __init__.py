@@ -19,6 +19,7 @@ for module_name in [ basename(f)[:-3] for f in modules if isfile(f) and not f.en
     exec("from .tools import "+module_name)
 from .properties import register_properties
 from bpy.types import Scene
+from sys import platform
 from .ui_sections.advanced_platform_options import Bake_PT_advanced_platform_options
 
 from . import globals
@@ -54,7 +55,13 @@ def register():
     try:
         import subprocess
         import sys
-        batch_path = os.path.dirname(__file__)+"/assets/tools/readregistrysteamkey.bat"
+        batch_path = ""
+        if platform == "linux":
+            batch_path = dirname(__file__)+"/assets/tools/readsteamlinux.sh"
+        elif platform == "darwin":
+            batch_path = dirname(__file__)+"/assets/tools/readsteammac.sh"
+        else:
+            batch_path = dirname(__file__)+"/assets/tools/readregistrysteamkey.bat"
         process = subprocess.Popen([batch_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = process.communicate()
         
