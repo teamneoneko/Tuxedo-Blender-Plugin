@@ -85,6 +85,8 @@
         "Scene.bake_alpha_pack.smoothness.label":"Smoothness",
         "Scene.bake_alpha_pack.specular.label":"Specular",
         "Scene.bake_alpha_pack.normal.specular.desc":"Pack Specular into alpha for normals. Useful for Gmod.",
+        "Scene.preserve_objects.label": "Preserve Objects",
+        "Scene.preserve_objects.desc": "Prevents objects from being joined together when smart decimating (fun fact, the gmod converter uses this)",
 
         "Scene.bake_alpha_pack.smoothness.desc":"Pack Smoothness. Most efficient if you don't have transparency or metallic textures.",
         "Scene.bake_alpha_pack.emit.desc":"A single-color emission mask, for use with preapplied emission",

@@ -147,7 +147,9 @@ class SmartDecimation(bpy.types.Operator):
         default=False
     )
     preserve_objects: bpy.props.BoolProperty(
-        default=False
+        default=False,
+        description=t("Scene.preserve_objects.desc"),
+        name=t("Scene.preserve_objects.label")
     )
     max_single_mesh_tris: bpy.props.IntProperty(
         default=99999999

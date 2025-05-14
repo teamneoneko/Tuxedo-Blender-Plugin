@@ -235,6 +235,12 @@ def register_properties():
         default=False
     )
 
+    Scene.smart_decimate_preserve_objects = BoolProperty(
+        name=t('Scene.preserve_objects.label'),
+        description=t('Scene.preserve_objects.desc'),
+        default=False
+    )
+
     Scene.bake_animation_weighting = BoolProperty(
         name=t('Scene.decimation_animation_weighting.label'),
         description=t('Scene.decimation_animation_weighting.desc'),
