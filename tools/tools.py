@@ -156,7 +156,7 @@ class SmartDecimation(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return core.get_armature(context) and (context.active_object is not None) and (context.object is not None)
+        return core.get_armature(context) and (context.active_object is not None) and (context.object is not None) and (context.mode == "OBJECT")
 
     def execute(self, context):
         animation_weighting = context.scene.decimation_animation_weighting
