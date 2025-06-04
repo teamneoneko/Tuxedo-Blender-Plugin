@@ -147,7 +147,9 @@ class SmartDecimation(bpy.types.Operator):
         default=False
     )
     preserve_objects: bpy.props.BoolProperty(
-        default=False
+        default=False,
+        description=t("Scene.preserve_objects.desc"),
+        name=t("Scene.preserve_objects.label")
     )
     max_single_mesh_tris: bpy.props.IntProperty(
         default=99999999
@@ -156,7 +158,7 @@ class SmartDecimation(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return core.get_armature(context) and (context.active_object is not None) and (context.object is not None)
+        return core.get_armature(context) and (context.active_object is not None) and (context.object is not None) and (context.mode == "OBJECT")
 
     def execute(self, context):
         animation_weighting = context.scene.decimation_animation_weighting

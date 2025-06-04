@@ -187,6 +187,21 @@ class Bake_Lod_Delete(Operator):
 
         return{'FINISHED'}
 
+
+@wrapper_registry
+class Smart_Decimate_UI(Operator):
+    bl_idname = "tuxedo_bake.lod_remove"
+    bl_label = t('Tools.smart_decimate.label')
+    bl_description = t("Tools.smart_decimate.desc")
+
+    @classmethod
+    def poll(cls, context):
+        return SmartDecimation.poll(context)
+
+    def execute(self, context):
+        bpy.ops.tuxedo.smart_decimation(preserve_objects=context.scene.smart_decimate_preserve_objects)
+        return{'FINISHED'}
+
 @wrapper_registry
 class ToolPanel(Panel):
     bl_label = t('ToolPanel.tools.label')
@@ -224,7 +239,9 @@ class ToolPanel(Panel):
 
         row = col.row(align=True)
         row.scale_y = 1.2
-        row.operator(SmartDecimation.bl_idname, icon='MOD_DECIM')
+        row.operator(Smart_Decimate_UI.bl_idname, icon='MOD_DECIM')
+        row = col.row(align=True)
+        row.prop(context.scene, "smart_decimate_preserve_objects")
 
         col.separator()
         col.separator()
