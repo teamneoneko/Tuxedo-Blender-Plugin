@@ -681,29 +681,28 @@ class FT_OT_CreateShapeKeys(Operator):
     bl_idname = "ft.create_shapekeys"
 
     def execute(self, context):
-
-        object = bpy.context.object
         scene = context.scene
         ft_mesh = scene.ft_mesh
-        active_object = bpy.context.active_object
-        mesh = bpy.ops.mesh
         ops = bpy.ops
 
         #Set the selected mesh to active object 
-        mesh = core.get_objects()[ft_mesh]
+        mesh_obj = core.get_objects()[ft_mesh]
         self.report({'INFO'}, "Selected mesh is: " + str(ft_mesh))
-        core.set_active(mesh)
+        core.set_active(mesh_obj)
+        
+        object = bpy.context.object
+        active_object = bpy.context.active_object
 
         #Check if there is shape keys on the mesh
         if object.data.shape_keys:
-
+            
             #Create beginning seperation marker for VRCFT Shape Keys
             if core.duplicate_shapekey("~~ SRanipal Face Tracking ~~") == False :
                 object.shape_key_add(name="~~ SRanipal Face Tracking ~~", from_mix=False)
 
             #Clear all existing values for shape keys
             ops.object.shape_key_clear()
-
+            
             basis_key = core.get_shapekeys_ft(self, context)[0][0]
             basis_key_ref = object.data.shape_keys.key_blocks[basis_key]
             basis_key_data = np.empty((len(basis_key_ref.data), 3), dtype=np.float32)
