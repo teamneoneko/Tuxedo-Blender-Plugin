@@ -326,11 +326,6 @@ def register_properties():
             ],
             default="INHERIT",
         )
-        prioritize_face: BoolProperty(
-            name=t('Scene.bake_prioritize_face.label'),
-            description=t('Scene.bake_prioritize_face.desc'),
-            default=False
-        )
     register_class(MaterialGroupSettings)
     
     

@@ -538,15 +538,9 @@ class BakeButton(bpy.types.Operator):
             tree.links.new(viewer_node.inputs["Alpha"], image_node.outputs["Alpha"])
         except Exception:
             # ignore any linking errors and continue
-            print("Error linking alpha input to viewer node, continuing without it.")
-            pass
-
-        try:
-            tree.links.new(viewer_node.inputs["Image"], filter_output)
-        except Exception:
-            print("Error linking image input to viewer node, continuing without it.")
-            pass
-
+            print("Error linking alpha input to viewer node")
+            
+        tree.links.new(viewer_node.inputs["Image"], filter_output)
 
         # rerender image
         context.scene.render.resolution_x = bpy.data.images[image].size[0]
@@ -965,9 +959,7 @@ class BakeButton(bpy.types.Operator):
         #generate structure for storing which materials should be grouped for multi-material bake output
         material_name_groups = {}
         reverse_material_name_dict = {}
-        # also collect per-group overrides for uv overlap correction and prioritize_face
-        material_group_uv_override = {}
-        material_group_prioritize_face = {}
+        material_group_overrides = {}
 
         # Build material groups map and reverse lookup
         for i in context.scene.bake_material_groups:
@@ -978,11 +970,15 @@ class BakeButton(bpy.types.Operator):
 
         # Read group-level settings from Scene.material_group_settings
         for g in getattr(context.scene, 'material_group_settings', []):
-            group_num = int(getattr(g, 'group_number', 0))
-            uv = getattr(g, 'uv_overlap_correction', None)
-            if uv and uv != 'INHERIT':
-                material_group_uv_override[group_num] = uv
-            material_group_prioritize_face[group_num] = bool(getattr(g, 'prioritize_face', False))
+            group_num_attr = g.get('group_number', None)
+            if group_num_attr is None:
+                continue
+            group_num = int(group_num_attr)
+            # get as string
+            settings_override = {}
+            if hasattr(g, 'uv_overlap_correction'):
+                settings_override['uv_overlap_correction'] = g.uv_overlap_correction
+            material_group_overrides[group_num] = settings_override
 
         # Tree-copy all meshes - exclude copy-only, and copy them just before export
         arm_copy = self.tree_copy(armature, None, collection, ignore_hidden,
@@ -1119,14 +1115,11 @@ class BakeButton(bpy.types.Operator):
                         obj_material_groups.add(reverse_material_name_dict[mat.name])
                 effective_uv = uv_overlap_correction
                 if obj_material_groups:
-                    overrides = [material_group_uv_override[g] for g in obj_material_groups if g in material_group_uv_override]
-                    if overrides:
-                        # prefer first override; if multiple and same, ok
-                        effective_uv = overrides[0]
-                # determine per-object prioritize_face
-                obj_prioritize = prioritize_face
-                if obj_material_groups:
-                    obj_prioritize = obj_prioritize or any(material_group_prioritize_face.get(g, False) for g in obj_material_groups)
+                    overrides = material_group_overrides.get(min(obj_material_groups), {})
+                    uv = overrides.get('uv_overlap_correction', None)
+                    if uv is not None:
+                        effective_uv = uv
+
                 bpy.ops.mesh.uv_texture_add()
                 obj.data.uv_layers[-1].name = 'Tuxedo UV'
                 tuxedo_uv_layers.add('Tuxedo UV')
@@ -1236,17 +1229,9 @@ class BakeButton(bpy.types.Operator):
                     bpy.ops.object.mode_set(mode='OBJECT')
 
             # Scale up textures most likely to be looked closer at (in this case, eyes)
-            if pack_uvs:
+            if prioritize_face and pack_uvs:
                 # Apply prioritize_face per-object using group overrides
                 for obj in get_objects(collection.all_objects, {"MESH"}):
-                    # determine per-object prioritize flag
-                    obj_material_groups = set()
-                    for mat in obj.data.materials:
-                        if mat and mat.name in reverse_material_name_dict:
-                            obj_material_groups.add(reverse_material_name_dict[mat.name])
-                    obj_prioritize = prioritize_face or any(material_group_prioritize_face.get(g, False) for g in obj_material_groups)
-                    if not obj_prioritize:
-                        continue
                     # Build set of relevant vertices
                     affected_vertices = set()
                     for group in ['LeftEye', 'lefteye', 'Lefteye', 'Eye.L', "Eye_L", 'RightEye', 'righteye', 'Righteye', 'Eye.R', "Eye_R"]:
@@ -1309,8 +1294,7 @@ class BakeButton(bpy.types.Operator):
                         
                         for group_num,group in material_name_groups.items():
                             # iterate over every material in said group, select that material on all meshes
-                            # decide this group's uv_overlap/pack behavior
-                            group_uv = material_group_uv_override.get(group_num, uv_overlap_correction)
+                            group_uv = material_group_overrides.get(group_num, {}).get('uv_overlap_correction', uv_overlap_correction)
                             group_pack_uvs = (not group_uv == "MANUALNOPACK")
                             print(f"Packing group {group_num} (pack_uvs={group_pack_uvs}, uv_override={group_uv})")
                             if not group_pack_uvs:
