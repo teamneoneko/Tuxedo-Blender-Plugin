@@ -103,6 +103,10 @@ class Material_Grouping_UL_List(UIList):
             col.label(text=item.name, icon = custom_icon)
             col = row.column()
             col.prop(item, "group", text=t('BakePanel.material_grouping.label'))
+            # per-group overrides
+            col = row.column()
+            col.prop(item, "uv_overlap_correction", text="UV Fix")
+            col.prop(item, "prioritize_face", text=t('Scene.bake_prioritize_face.label'))
             #col = row.column()
             #col.prop(item, "include", text="include")
         elif self.layout_type in {'GRID'}:
@@ -118,6 +122,36 @@ class Material_Grouping_UL_List_Reload(Operator):
         core.materials_list_update(context)
 
         return{'FINISHED'}
+
+
+@wrapper_registry
+class Material_Group_Settings_List(UIList):
+    bl_label = "Material Group Settings"
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        row = layout.row(align=True)
+        row.label(text=str(item.group_number))
+        row.prop(item, 'uv_overlap_correction', text='')
+        row.prop(item, 'prioritize_face', text='')
+
+
+@wrapper_registry
+class Create_Material_Group_Settings(Operator):
+    bl_idname = 'tuxedo_bake.create_material_group_settings'
+    bl_label = 'Create Group Settings'
+    bl_description = 'Create or select material group settings for the selected material group number'
+
+    group_number: bpy.props.IntProperty()
+
+    def execute(self, context):
+        # find if exists
+        for i,gs in enumerate(context.scene.material_group_settings):
+            if gs.group_number == self.group_number:
+                context.scene.material_group_settings_index = i
+                return {'FINISHED'}
+        item = context.scene.material_group_settings.add()
+        item.group_number = self.group_number
+        context.scene.material_group_settings_index = len(context.scene.material_group_settings)-1
+        return {'FINISHED'}
 
 @wrapper_registry
 class Bake_Platform_New(Operator):
@@ -404,6 +438,20 @@ class BakePanel(Panel):
                           "bake_material_groups", context.scene, "bake_material_groups_index")
         row = col.row(align=True)
         row.operator(Material_Grouping_UL_List_Reload.bl_idname)
+        # Quick open/create for group settings based on selected material group
+        if context.scene.bake_material_groups and context.scene.bake_material_groups_index >= 0:
+            try:
+                sel = context.scene.bake_material_groups[context.scene.bake_material_groups_index]
+                groupnum = sel.group
+                op = row.operator(Create_Material_Group_Settings.bl_idname, text=f"Group {groupnum} Settings")
+                op.group_number = groupnum
+            except Exception:
+                pass
+        # show group settings list
+        row = col.row()
+        row.label(text='Group Settings')
+        row = col.row()
+        row.template_list('Material_Group_Settings_List', 'Group_Settings', context.scene, 'material_group_settings', context.scene, 'material_group_settings_index')
         col.separator()
         row = col.row()
         col.label(text=t('BakePanel.platforms.label'))

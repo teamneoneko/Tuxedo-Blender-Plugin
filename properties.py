@@ -305,6 +305,33 @@ def register_properties():
             max=30
         )
     register_class(MaterialListGrouper)
+
+    class MaterialGroupSettings(PropertyGroup):
+        group_number: IntProperty(
+            name="Group Number",
+            default=0,
+            min=0,
+            max=999
+        )
+        uv_overlap_correction: EnumProperty(
+            name=t('Scene.bake_uv_overlap_correction.label'),
+            description=t('Scene.bake_uv_overlap_correction.desc'),
+            items=[
+                ("INHERIT", "Inherit", "Use scene default"),
+                ("NONE", t("Scene.bake_uv_overlap_correction.none.label"), t("Scene.bake_uv_overlap_correction.none.desc")),
+                ("UNMIRROR", t("Scene.bake_uv_overlap_correction.unmirror.label"), t("Scene.bake_uv_overlap_correction.unmirror.desc")),
+                ("REPROJECT", t("Scene.bake_uv_overlap_correction.reproject.label"), t("Scene.bake_uv_overlap_correction.reproject.desc")),
+                ("MANUAL", t('BakePanel.manual.label'), t('BakePanel.manual.desc')),
+                ("MANUALNOPACK", t('BakePanel.manual_no_pack.label'), t('BakePanel.manual_no_pack.desc')),
+            ],
+            default="INHERIT",
+        )
+        prioritize_face: BoolProperty(
+            name=t('Scene.bake_prioritize_face.label'),
+            description=t('Scene.bake_prioritize_face.desc'),
+            default=False
+        )
+    register_class(MaterialGroupSettings)
     
     
     
@@ -313,6 +340,11 @@ def register_properties():
         type=MaterialListGrouper
     )
     Scene.bake_material_groups_index = IntProperty(default=0)
+
+    Scene.material_group_settings = CollectionProperty(
+        type=MaterialGroupSettings
+    )
+    Scene.material_group_settings_index = IntProperty(default=0)
         
     Scene.bake_resolution = IntProperty(
         name=t('Scene.bake_resolution.label'),
