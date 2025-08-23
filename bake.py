@@ -1230,7 +1230,6 @@ class BakeButton(bpy.types.Operator):
 
             # Scale up textures most likely to be looked closer at (in this case, eyes)
             if prioritize_face and pack_uvs:
-                # Apply prioritize_face per-object using group overrides
                 for obj in get_objects(collection.all_objects, {"MESH"}):
                     # Build set of relevant vertices
                     affected_vertices = set()
