@@ -452,13 +452,13 @@ class BakePanel(Panel):
             try:
                 sel = context.scene.bake_material_groups[context.scene.bake_material_groups_index]
                 groupnum = sel.group
-                op = row.operator(Create_Material_Group_Settings.bl_idname, text=f"Group {groupnum} Settings")
+                op = row.operator(Create_Material_Group_Settings.bl_idname, text=f"Override Group {groupnum} Settings")
                 op.group_number = groupnum
             except Exception:
                 pass
         # show group settings list
         row = col.row()
-        row.label(text='Group Settings')
+        row.label(text='Group Overrides')
         row = col.row()
         row.template_list('Material_Group_Settings_List', 'Group_Settings', context.scene, 'material_group_settings', context.scene, 'material_group_settings_index')
         col.separator()
