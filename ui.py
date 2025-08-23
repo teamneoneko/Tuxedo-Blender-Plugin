@@ -103,10 +103,6 @@ class Material_Grouping_UL_List(UIList):
             col.label(text=item.name, icon = custom_icon)
             col = row.column()
             col.prop(item, "group", text=t('BakePanel.material_grouping.label'))
-            # per-group overrides
-            col = row.column()
-            col.prop(item, "uv_overlap_correction", text="UV Fix")
-            col.prop(item, "prioritize_face", text=t('Scene.bake_prioritize_face.label'))
             #col = row.column()
             #col.prop(item, "include", text="include")
         elif self.layout_type in {'GRID'}:
@@ -131,7 +127,20 @@ class Material_Group_Settings_List(UIList):
         row = layout.row(align=True)
         row.label(text=str(item.group_number))
         row.prop(item, 'uv_overlap_correction', text='')
-        row.prop(item, 'prioritize_face', text='')
+        # delete operator
+        row.operator("tuxedo_bake.material_group_settings_delete", text="", icon='X', emboss=False).index = index
+        
+@wrapper_registry
+class Material_Group_Settings_Delete(Operator):
+    bl_idname = "tuxedo_bake.material_group_settings_delete"
+    bl_label = "Delete Material Group Settings"
+    bl_options = {'INTERNAL'}
+
+    index: bpy.props.IntProperty()
+
+    def execute(self, context):
+        context.scene.material_group_settings.remove(self.index)
+        return {'FINISHED'}
 
 
 @wrapper_registry
