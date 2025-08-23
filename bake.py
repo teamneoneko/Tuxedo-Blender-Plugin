@@ -534,28 +534,19 @@ class BakeButton(bpy.types.Operator):
         filter_input, filter_output = filter_create(context, tree, matgroupnum)
         tree.links.new(filter_input, image_node.outputs["Image"])
         viewer_node = tree.nodes.new(type="CompositorNodeComposite")
-        # Link alpha only if both nodes expose an Alpha socket (some setups/versions may not)
-        if "Alpha" in viewer_node.inputs and "Alpha" in image_node.outputs:
-            try:
-                tree.links.new(viewer_node.inputs["Alpha"], image_node.outputs["Alpha"])
-            except Exception:
-                # ignore any linking errors and continue
-                pass
+        try:
+            tree.links.new(viewer_node.inputs["Alpha"], image_node.outputs["Alpha"])
+        except Exception:
+            # ignore any linking errors and continue
+            print("Error linking alpha input to viewer node, continuing without it.")
+            pass
 
-        # Link image output to the composite node. If the standard 'Image' input is missing,
-        # fall back to the first available input to avoid crashes.
-        if "Image" in viewer_node.inputs:
-            try:
-                tree.links.new(viewer_node.inputs["Image"], filter_output)
-            except Exception:
-                pass
-        else:
-            # fallback: try linking to index 0 input if present
-            try:
-                if len(viewer_node.inputs) > 0:
-                    tree.links.new(viewer_node.inputs[0], filter_output)
-            except Exception:
-                pass
+        try:
+            tree.links.new(viewer_node.inputs["Image"], filter_output)
+        except Exception:
+            print("Error linking image input to viewer node, continuing without it.")
+            pass
+
 
         # rerender image
         context.scene.render.resolution_x = bpy.data.images[image].size[0]
