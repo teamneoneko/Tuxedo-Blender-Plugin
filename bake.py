@@ -1586,9 +1586,10 @@ class BakeButton(bpy.types.Operator):
                     key.value = 0.0
 
         # Joining meshes causes issues with materials. Instead. apply location for all meshes, so object and world space are the same
-        # Preserve custom normals on all meshes if enabled, to prevent loss during baking
+        # Preserve custom normals on all meshes if any platform requests it or uses decimation
+        should_preserve_normals = any(plat.preserve_custom_normals or plat.use_decimation for plat in context.scene.bake_platforms)
         for obj in get_objects(collection.all_objects, filter_type="MESH"):
-            if use_decimation or platform.preserve_custom_normals:
+            if should_preserve_normals:
                 core.preserve_custom_normals(context, obj)
         
         for obj in get_objects(collection.all_objects):
