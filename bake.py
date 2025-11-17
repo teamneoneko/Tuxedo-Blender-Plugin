@@ -1595,6 +1595,12 @@ class BakeButton(bpy.types.Operator):
 
         # Bake normals in object coordinates
         if pass_normal:
+            # Temporarily disable simplify during normal bake to ensure proper modifier evaluation
+            # (especially important for Multires/Displacement modifiers)
+            simplify_backup = context.scene.render.use_simplify
+            if draft_quality:
+                context.scene.render.use_simplify = False
+            
             if generate_uvmap:
                 for obj in get_objects(collection.all_objects, filter_type="MESH"):
                     if supersample_normals:
@@ -1606,6 +1612,9 @@ class BakeButton(bpy.types.Operator):
                          (resolution, resolution))
             self.bake_pass(context, "world", "NORMAL", set(), get_objects(collection.all_objects, {"MESH"}),
                            bake_size, 1 if draft_render else 128, 0, [0.5, 0.5, 1., 1.], True, pixelmargin, normal_space="OBJECT",solidmaterialcolors=solidmaterialcolors,material_name_groups=material_name_groups)
+            
+            # Restore simplify setting
+            context.scene.render.use_simplify = simplify_backup
 
         # Reset UV
         for obj in get_objects(collection.all_objects):
