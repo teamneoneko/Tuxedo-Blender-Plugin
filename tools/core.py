@@ -430,6 +430,27 @@ def join_meshes(context: bpy.types.Context, armature_name: str) -> None:
 def has_shapekeys(obj) -> bool:
     return obj.type == 'MESH' and hasattr(obj, 'data') and hasattr(obj.data,'shape_keys') and hasattr(obj.data.shape_keys, 'key_blocks') and len(obj.data.shape_keys.key_blocks) > 1
 
+def preserve_custom_normals(context: bpy.types.Context, mesh: bpy.types.Mesh) -> None:
+    """Convert automatic normals to custom split normals to preserve hand-painted normals during baking.
+    This ensures custom normal data is not lost or modified by modifier application and bake operations."""
+
+    if mesh.type != 'MESH':
+        return
+    
+    # Enable auto smooth to allow custom normals
+    mesh.data.use_auto_smooth = True
+    mesh.data.auto_smooth_angle = math.radians(60)
+    
+    # Add custom split normals if not already present
+    if not mesh.data.has_custom_normals:
+        context.view_layer.objects.active = mesh
+        mesh.select_set(True)
+        Set_Mode(context, "OBJECT")
+        try:
+            bpy.ops.mesh.customdata_custom_splitnormals_add()
+        except RuntimeError:
+            pass
+
 # Remove doubles using bmesh safely
 def remove_doubles_safely(mesh: typing.Union[bpy.types.Mesh], margin: float = .00001, merge_all: bool = True) -> None:
     bm = bmesh.new()
