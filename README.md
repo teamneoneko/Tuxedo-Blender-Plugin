@@ -1,6 +1,7 @@
 ### This is the Unoffical Tuxedo Blender Plugin which is maintained by the Neoneko team, the people whom also maintain the Unoffical Cats Blender Plugin. Please report issues here.
 
 ## Tuxedo Blender Plugin - a Blender plugin to make importing character models into various game engines painless and fast.
+#### This is for Blender 5.x, please see the 4.x branch if you need a 4.x version: https://github.com/teamneoneko/Tuxedo-Blender-Plugin/tree/Blender-4.x
 
 [Questions? Join us on Discord!](https://discord.neoneko.xyz)
 
