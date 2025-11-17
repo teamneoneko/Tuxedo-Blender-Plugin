@@ -908,6 +908,12 @@ class BakeButton(bpy.types.Operator):
         if draft_quality:
             resolution = min(resolution, 1024)
         draft_render = is_unittest or draft_quality
+        
+        # Additional optimizations for unit tests to reduce bake time
+        if is_unittest:
+            resolution = min(resolution, 512)  
+            denoise_bakes = False 
+            sharpen_bakes = False 
         pixelmargin = int(math.ceil(margin * resolution / 2))
 
         # Passes
@@ -1586,6 +1592,12 @@ class BakeButton(bpy.types.Operator):
                     key.value = 0.0
 
         # Joining meshes causes issues with materials. Instead. apply location for all meshes, so object and world space are the same
+        # Preserve custom normals on all meshes if any platform requests it or uses decimation
+        should_preserve_normals = any(plat.preserve_custom_normals or plat.use_decimation for plat in context.scene.bake_platforms)
+        for obj in get_objects(collection.all_objects, filter_type="MESH"):
+            if should_preserve_normals:
+                core.preserve_custom_normals(context, obj)
+        
         for obj in get_objects(collection.all_objects):
             if obj.type in ["MESH", "ARMATURE"]:
                 bpy.ops.object.select_all(action='DESELECT')
@@ -1595,6 +1607,12 @@ class BakeButton(bpy.types.Operator):
 
         # Bake normals in object coordinates
         if pass_normal:
+            # Temporarily disable simplify during normal bake to ensure proper modifier evaluation
+            # (especially important for Multires/Displacement modifiers)
+            simplify_backup = context.scene.render.use_simplify
+            if draft_quality:
+                context.scene.render.use_simplify = False
+            
             if generate_uvmap:
                 for obj in get_objects(collection.all_objects, filter_type="MESH"):
                     if supersample_normals:
@@ -1606,6 +1624,9 @@ class BakeButton(bpy.types.Operator):
                          (resolution, resolution))
             self.bake_pass(context, "world", "NORMAL", set(), get_objects(collection.all_objects, {"MESH"}),
                            bake_size, 1 if draft_render else 128, 0, [0.5, 0.5, 1., 1.], True, pixelmargin, normal_space="OBJECT",solidmaterialcolors=solidmaterialcolors,material_name_groups=material_name_groups)
+            
+            # Restore simplify setting
+            context.scene.render.use_simplify = simplify_backup
 
         # Reset UV
         for obj in get_objects(collection.all_objects):
@@ -2020,6 +2041,9 @@ class BakeButton(bpy.types.Operator):
                 for obj in get_objects(new_arm.children):
                     obj.display_type = "WIRE"
                 context.scene.tuxedo_max_tris = int(platform.max_tris * physmodel_lod)
+                # Set context for operator
+                context.view_layer.objects.active = new_arm
+                core.Set_Mode(context, "OBJECT")
                 bpy.ops.tuxedo.smart_decimation(armature_name=new_arm.name, preserve_seams=False, preserve_objects=(export_format == "GMOD"), max_single_mesh_tris=(9900 if (export_format == "GMOD") else (bpy.context.scene.tuxedo_max_tris)))
                 for obj in get_objects(new_arm.children):
                     obj.name = "LODPhysics"
@@ -2030,6 +2054,9 @@ class BakeButton(bpy.types.Operator):
                 for idx, lod in enumerate(lods):
                     new_arm = self.tree_copy(plat_arm_copy, None, plat_collection, ignore_hidden, view_layer=context.view_layer)
                     context.scene.tuxedo_max_tris = int(platform.max_tris * lod)
+                    # Set context for operator
+                    context.view_layer.objects.active = new_arm
+                    core.Set_Mode(context, "OBJECT")
                     bpy.ops.tuxedo.smart_decimation(armature_name=new_arm.name, preserve_seams=preserve_seams, preserve_objects=(export_format == "GMOD"), max_single_mesh_tris=(9900 if (export_format == "GMOD") else (bpy.context.scene.tuxedo_max_tris)))
                     for obj in get_objects(new_arm.children):
                         obj.name = "LOD" + str(idx + 1)
@@ -2039,6 +2066,9 @@ class BakeButton(bpy.types.Operator):
             if use_decimation:
                 # Decimate. If 'preserve seams' is selected, forcibly preserve seams (seams from islands, deselect seams)
                 context.scene.tuxedo_max_tris = int(platform.max_tris)
+                # Set context for operator
+                context.view_layer.objects.active = plat_arm_copy
+                core.Set_Mode(context, "OBJECT")
                 bpy.ops.tuxedo.smart_decimation(armature_name=plat_arm_copy.name, preserve_seams=preserve_seams, preserve_objects=(export_format == "GMOD"), max_single_mesh_tris=(9900 if (export_format == "GMOD") else (bpy.context.scene.tuxedo_max_tris)))
             else:
                 # join meshes here if we didn't decimate

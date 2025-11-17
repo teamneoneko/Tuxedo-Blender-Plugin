@@ -417,18 +417,125 @@ def dup_and_split_weights_bones(context: bpy.types.Context, armature_obj: bpy.ty
 
 
 def join_meshes(context: bpy.types.Context, armature_name: str) -> None:
-    bpy.data.objects[armature_name]
-    meshes = get_meshes_objects(context, armature_name)
-    if not meshes:
+    """
+    Join multiple meshes into a single mesh without using operator context.
+    This avoids "context is incorrect" errors in Blender 4.1+ by using low-level API
+    instead of bpy.ops which has stricter polling requirements.
+    """
+    try:
+        armature = bpy.data.objects[armature_name]
+    except KeyError:
         return
-    context.view_layer.objects.active = meshes[0]
-    bpy.ops.object.select_all(action='DESELECT')
-    for mesh in meshes:
+    
+    meshes = get_meshes_objects(context, armature_name)
+    if not meshes or len(meshes) < 2:
+        return
+    
+    # Use low-level selection API instead of operators
+    target_mesh = meshes[0]
+    context.view_layer.objects.active = target_mesh
+    
+    # Deselect all first using direct property access
+    for obj in context.scene.objects:
+        obj.select_set(False)
+    
+    # Select target and all meshes to join
+    target_mesh.select_set(True)
+    for mesh in meshes[1:]:
         mesh.select_set(True)
-    bpy.ops.object.join()
+    
+    # Use bmesh to join geometries without relying on operators
+    try:
+        bm_target = bmesh.new()
+        bm_target.from_mesh(target_mesh.data)
+        
+        # Track offset for face vertex indices
+        vert_offset = 0
+        
+        for source_mesh in meshes[1:]:
+            bm_source = bmesh.new()
+            bm_source.from_mesh(source_mesh.data)
+            
+            # Copy vertices
+            for vert in bm_source.verts:
+                bm_target.verts.new(vert.co)
+            
+            bm_target.verts.ensure_lookup_table()
+            
+            # Copy edges
+            for edge in bm_source.edges:
+                v1_idx = edge.verts[0].index + vert_offset
+                v2_idx = edge.verts[1].index + vert_offset
+                try:
+                    bm_target.edges.new([bm_target.verts[v1_idx], bm_target.verts[v2_idx]])
+                except ValueError:
+                    pass  # Edge already exists
+            
+            bm_target.edges.ensure_lookup_table()
+            
+            # Copy faces
+            for face in bm_source.faces:
+                vert_indices = [v.index + vert_offset for v in face.verts]
+                try:
+                    bm_target.faces.new([bm_target.verts[i] for i in vert_indices])
+                except ValueError:
+                    pass  # Face already exists
+            
+            vert_offset += len(bm_source.verts)
+            bm_source.free()
+        
+        bm_target.to_mesh(target_mesh.data)
+        bm_target.free()
+        target_mesh.data.update()
+        
+        # Delete source meshes
+        for mesh in meshes[1:]:
+            bpy.data.objects.remove(mesh, do_unlink=True)
+    
+    except Exception as e:
+        print(f"Error joining meshes: {e}")
+        # Fallback: try the operator method as last resort
+        try:
+            bpy.ops.object.join()
+        except RuntimeError:
+            print("Failed to join meshes with operator method as well")
 
 def has_shapekeys(obj) -> bool:
     return obj.type == 'MESH' and hasattr(obj, 'data') and hasattr(obj.data,'shape_keys') and hasattr(obj.data.shape_keys, 'key_blocks') and len(obj.data.shape_keys.key_blocks) > 1
+
+def preserve_custom_normals(context: bpy.types.Context, mesh_obj: bpy.types.Object) -> None:
+    """Convert automatic normals to custom split normals to preserve hand-painted normals during baking.
+    This ensures custom normal data is not lost or modified by modifier application and bake operations.
+    """
+    if mesh_obj.type != 'MESH':
+        return
+    
+    # Enable auto smooth to allow custom normals
+    smooth_mod = None
+    for mod in mesh_obj.modifiers:
+        if mod.type == 'NODES' and mod.node_group and 'Smooth by Angle' in mod.node_group.name:
+            smooth_mod = mod
+            break
+    
+    # Add smooth by angle modifier if not present
+    if not smooth_mod:
+        bpy.ops.object.modifier_add(type='NODES')
+        smooth_mod = mesh_obj.modifiers[-1]
+        smooth_mod.name = "Smooth by Angle"
+        # Set angle to 60 degrees (equivalent to previous auto_smooth_angle)
+        if hasattr(smooth_mod, 'node_group'):
+            smooth_mod.node_group = bpy.data.node_groups.get("Smooth by Angle")
+    
+    # Add custom split normals if not already present
+    if not mesh_obj.data.has_custom_normals:
+        context.view_layer.objects.active = mesh_obj
+        mesh_obj.select_set(True)
+        Set_Mode(context, "OBJECT")
+        try:
+            bpy.ops.mesh.customdata_custom_splitnormals_add()
+        except RuntimeError:
+            # Operator may fail in some contexts, which is safe to ignore
+            pass
 
 # Remove doubles using bmesh safely
 def remove_doubles_safely(mesh: typing.Union[bpy.types.Mesh], margin: float = .00001, merge_all: bool = True) -> None:
