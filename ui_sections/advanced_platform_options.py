@@ -110,9 +110,8 @@ class Bake_PT_advanced_platform_options:
                 row.separator()
                 row.prop(item, 'smoothness_premultiply_opacity', expand=True)
         if context.scene.bake_pass_diffuse:
-            if bpy.app.version >= (2, 92, 0):
-                row = col.row(align=True)
-                row.prop(item, 'diffuse_vertex_colors', expand=True)
+            row = col.row(align=True)
+            row.prop(item, 'diffuse_vertex_colors', expand=True)
         if context.scene.bake_pass_diffuse and (context.scene.bake_pass_smoothness or context.scene.bake_pass_alpha) and not item.diffuse_vertex_colors:
             row = col.row(align=True)
             row.label(text="Diffuse Alpha:")
