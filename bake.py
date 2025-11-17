@@ -12,12 +12,9 @@ from .class_register import wrapper_registry
 from .tools.translate import t
 from .tools import core
 
-if bpy.app.version >= (4, 0, 0):
-    EMISSION_INPUT = "Emission Color"
-    SPECULAR_INPUT = "Specular IOR Level"
-else:
-    EMISSION_INPUT = "Emission"
-    SPECULAR_INPUT = "Specular"
+# Blender 4.2.0+ constants
+EMISSION_INPUT = "Emission Color"
+SPECULAR_INPUT = "Specular IOR Level"
 
 @wrapper_registry
 class BakeTutorialButton(bpy.types.Operator):
@@ -646,10 +643,7 @@ class BakeButton(bpy.types.Operator):
         context.scene.render.bake.use_pass_color = "COLOR" in bake_pass_filter
         context.scene.render.bake.use_pass_diffuse = "DIFFUSE" in bake_pass_filter
         context.scene.render.bake.use_pass_emit = "EMIT" in bake_pass_filter
-        if bpy.app.version >= (2, 92, 0):
-            context.scene.render.bake.target = "VERTEX_COLORS" if "VERTEX_COLORS" in bake_pass_filter else "IMAGE_TEXTURES"
-        if bpy.app.version <= (3, 0, 0):
-            context.scene.render.bake.use_pass_ambient_occlusion = "AO" in bake_pass_filter
+        context.scene.render.bake.target = "VERTEX_COLORS" if "VERTEX_COLORS" in bake_pass_filter else "IMAGE_TEXTURES"
         context.scene.cycles.samples = bake_samples
         context.scene.render.image_settings.color_mode = 'RGB'
         context.scene.render.bake.use_clear = clear and bake_type == 'NORMAL'
@@ -1269,10 +1263,7 @@ class BakeButton(bpy.types.Operator):
 
                 if pack_uvs:
                     if not context.scene.uvp_lock_islands:
-                        if bpy.app.version < (3, 6, 0) or not is_unittest:
-                            bpy.ops.uv.pack_islands(rotate=True, margin=margin)
-                        else:
-                            bpy.ops.uv.pack_islands(rotate=True, margin=margin, rotate_method="AXIS_ALIGNED")
+                        bpy.ops.uv.pack_islands(rotate=True, margin=margin, rotate_method="AXIS_ALIGNED")
 
                     # detect if UVPackMaster installed and configured: apparently UVP doesn't always
                     # self-initialize? So just force it
@@ -1415,10 +1406,7 @@ class BakeButton(bpy.types.Operator):
                                 bpy.ops.object.mode_set(mode='EDIT')
                                 
                                 print("Group " +str(group) + " selected. Packing islands")
-                                if bpy.app.version < (3, 6, 0) or not is_unittest:
-                                    bpy.ops.uv.pack_islands(rotate=True, margin=margin)
-                                else:
-                                    bpy.ops.uv.pack_islands(rotate=True, margin=margin, rotate_method="AXIS_ALIGNED")
+                                bpy.ops.uv.pack_islands(rotate=True, margin=margin, rotate_method="AXIS_ALIGNED")
                                 
                                 #deselect mesh geometry in preperation for next group
                                 bpy.ops.mesh.select_all(action='DESELECT')

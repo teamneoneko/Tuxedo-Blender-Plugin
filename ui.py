@@ -527,9 +527,6 @@ class BakePanel(Panel):
                 row.label(text=t('BakePanel.warn_no_cycles_addon'), icon="INFO")
                 row = col.row(align=True)
                     
-            if not addon_utils.check("render_auto_tile_size")[1] and bpy.app.version <= (2, 93):
-                row = col.row(align=True)
-                row.label(text=t('BakePanel.warn_auto_tile_size'), icon="INFO")
             row = col.row(align=True)
             row.prop(context.scene, 'bake_device', expand=True)
             
