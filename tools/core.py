@@ -34,19 +34,8 @@ def get_tricount(obj):
     return len(bmesh_mesh.faces)
 
 def get_children_recursive(parent):
-    if bpy.app.version < (3, 1):
-        objs = []
-
-        def get_child_names(obj):
-            for child in obj.children:
-                objs.append(child)
-                if child.children:
-                    get_child_names(child)
-
-        get_child_names(parent)
-        return objs
-    else:
-        return parent.children_recursive
+    # Blender 4.2.0+ always has children_recursive
+    return parent.children_recursive
 
 def apply_shapekey_to_basis(context: bpy.types.Context, obj: bpy.types.Object, shape_key_name: str, delete_old: bool = False):
     if shape_key_name not in obj.data.shape_keys.key_blocks:
@@ -701,7 +690,8 @@ def duplicate_shapekey(string):
         return False
 
 def version_2_79_or_older():
-    return bpy.app.version < (2, 80)
+    # Always False for Blender 4.2.0+
+    return False
 
 #this is done because the version our addon is made for may not be minor or patch specific. In this case, just check what we specify for our version
 #This allows us to specify "(4, 0)" and ignore any 4.0.x version patches. - @989onan
