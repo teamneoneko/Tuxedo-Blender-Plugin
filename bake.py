@@ -2035,6 +2035,9 @@ class BakeButton(bpy.types.Operator):
                 for obj in get_objects(new_arm.children):
                     obj.display_type = "WIRE"
                 context.scene.tuxedo_max_tris = int(platform.max_tris * physmodel_lod)
+                # Set context for operator
+                context.view_layer.objects.active = new_arm
+                core.Set_Mode(context, "OBJECT")
                 bpy.ops.tuxedo.smart_decimation(armature_name=new_arm.name, preserve_seams=False, preserve_objects=(export_format == "GMOD"), max_single_mesh_tris=(9900 if (export_format == "GMOD") else (bpy.context.scene.tuxedo_max_tris)))
                 for obj in get_objects(new_arm.children):
                     obj.name = "LODPhysics"
@@ -2045,6 +2048,9 @@ class BakeButton(bpy.types.Operator):
                 for idx, lod in enumerate(lods):
                     new_arm = self.tree_copy(plat_arm_copy, None, plat_collection, ignore_hidden, view_layer=context.view_layer)
                     context.scene.tuxedo_max_tris = int(platform.max_tris * lod)
+                    # Set context for operator
+                    context.view_layer.objects.active = new_arm
+                    core.Set_Mode(context, "OBJECT")
                     bpy.ops.tuxedo.smart_decimation(armature_name=new_arm.name, preserve_seams=preserve_seams, preserve_objects=(export_format == "GMOD"), max_single_mesh_tris=(9900 if (export_format == "GMOD") else (bpy.context.scene.tuxedo_max_tris)))
                     for obj in get_objects(new_arm.children):
                         obj.name = "LOD" + str(idx + 1)
@@ -2054,6 +2060,9 @@ class BakeButton(bpy.types.Operator):
             if use_decimation:
                 # Decimate. If 'preserve seams' is selected, forcibly preserve seams (seams from islands, deselect seams)
                 context.scene.tuxedo_max_tris = int(platform.max_tris)
+                # Set context for operator
+                context.view_layer.objects.active = plat_arm_copy
+                core.Set_Mode(context, "OBJECT")
                 bpy.ops.tuxedo.smart_decimation(armature_name=plat_arm_copy.name, preserve_seams=preserve_seams, preserve_objects=(export_format == "GMOD"), max_single_mesh_tris=(9900 if (export_format == "GMOD") else (bpy.context.scene.tuxedo_max_tris)))
             else:
                 # join meshes here if we didn't decimate

@@ -503,25 +503,38 @@ def join_meshes(context: bpy.types.Context, armature_name: str) -> None:
 def has_shapekeys(obj) -> bool:
     return obj.type == 'MESH' and hasattr(obj, 'data') and hasattr(obj.data,'shape_keys') and hasattr(obj.data.shape_keys, 'key_blocks') and len(obj.data.shape_keys.key_blocks) > 1
 
-def preserve_custom_normals(context: bpy.types.Context, mesh: bpy.types.Mesh) -> None:
+def preserve_custom_normals(context: bpy.types.Context, mesh_obj: bpy.types.Object) -> None:
     """Convert automatic normals to custom split normals to preserve hand-painted normals during baking.
-    This ensures custom normal data is not lost or modified by modifier application and bake operations."""
-
-    if mesh.type != 'MESH':
+    This ensures custom normal data is not lost or modified by modifier application and bake operations.
+    """
+    if mesh_obj.type != 'MESH':
         return
     
     # Enable auto smooth to allow custom normals
-    mesh.data.use_auto_smooth = True
-    mesh.data.auto_smooth_angle = math.radians(60)
+    smooth_mod = None
+    for mod in mesh_obj.modifiers:
+        if mod.type == 'NODES' and mod.node_group and 'Smooth by Angle' in mod.node_group.name:
+            smooth_mod = mod
+            break
+    
+    # Add smooth by angle modifier if not present
+    if not smooth_mod:
+        bpy.ops.object.modifier_add(type='NODES')
+        smooth_mod = mesh_obj.modifiers[-1]
+        smooth_mod.name = "Smooth by Angle"
+        # Set angle to 60 degrees (equivalent to previous auto_smooth_angle)
+        if hasattr(smooth_mod, 'node_group'):
+            smooth_mod.node_group = bpy.data.node_groups.get("Smooth by Angle")
     
     # Add custom split normals if not already present
-    if not mesh.data.has_custom_normals:
-        context.view_layer.objects.active = mesh
-        mesh.select_set(True)
+    if not mesh_obj.data.has_custom_normals:
+        context.view_layer.objects.active = mesh_obj
+        mesh_obj.select_set(True)
         Set_Mode(context, "OBJECT")
         try:
             bpy.ops.mesh.customdata_custom_splitnormals_add()
         except RuntimeError:
+            # Operator may fail in some contexts, which is safe to ignore
             pass
 
 # Remove doubles using bmesh safely

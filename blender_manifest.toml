@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "unofficial_tuxedo_blender_plugin"
-version = "0.4.2"
+version = "1.1.0"
 name = "Unofficial Tuxedo Blender Plugin"
 tagline = "Tools to improve and optimize models for various game engines"
 maintainer = "Neoneko <hello@neoneko.xyz>"
