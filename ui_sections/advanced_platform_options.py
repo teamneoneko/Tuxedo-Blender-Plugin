@@ -128,6 +128,8 @@ class Bake_PT_advanced_platform_options:
         if context.scene.bake_pass_normal:
             row = col.row(align=True)
             row.prop(item, 'normal_invert_g', expand=True)
+            row = col.row(align=True)
+            row.prop(item, 'preserve_custom_normals', expand=True)
         if context.scene.bake_pass_metallic and context.scene.bake_pass_smoothness and not item.specular_setup and not item.phong_setup:
             row = col.row(align=True)
             row.label(text="Metallic Alpha:")

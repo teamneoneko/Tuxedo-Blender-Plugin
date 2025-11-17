@@ -204,6 +204,11 @@ class BakePlatformPropertyGroup(PropertyGroup):
             description=t('Bake.specular_smoothness_overlay.desc'),
             default=False
         )
+        preserve_custom_normals: BoolProperty(
+            name="Preserve Custom Normals",
+            description="Convert auto normals to custom split normals before baking to preserve hand-painted normals",
+            default=True
+        )
         gmod_model_name: StringProperty(name=t('Gmod.gmod_model_name.label'), description=t('Gmod.gmod_model_name.desc'), default="")
         gmod_male: BoolProperty(name=t('Gmod.gmod_male.label'), default=True)
         prop_bone_handling: EnumProperty(
