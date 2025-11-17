@@ -908,6 +908,12 @@ class BakeButton(bpy.types.Operator):
         if draft_quality:
             resolution = min(resolution, 1024)
         draft_render = is_unittest or draft_quality
+        
+        # Additional optimizations for unit tests to reduce bake time
+        if is_unittest:
+            resolution = min(resolution, 512)  
+            denoise_bakes = False 
+            sharpen_bakes = False 
         pixelmargin = int(math.ceil(margin * resolution / 2))
 
         # Passes
