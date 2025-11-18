@@ -2,6 +2,7 @@ import bpy
 
 from ..globals import UITab
 from ..tools.translate import t
+from ..tools import core
 
 
 from ..ui import register_ui_tab #need this for registering our class to the ui
@@ -38,8 +39,26 @@ class Bake_PT_bake_passes(UITab):
         col.separator()
         row = col.row(align=True)
         row.prop(context.scene, 'bake_pass_ao', expand=True)
-        # TODO: warning in UI if you don't have any AO keys
+        # Check if user has AO shapekeys when AO pass is enabled
         if context.scene.bake_pass_ao:
+            has_ao_keys = False
+            for obj in core.get_meshes_objects(context):
+                if core.has_shapekeys(obj):
+                    for key in obj.data.shape_keys.key_blocks:
+                        if ('ambient' in key.name.lower() and 'occlusion' in key.name.lower()) or key.name.endswith('_ao'):
+                            has_ao_keys = True
+                            break
+                if has_ao_keys:
+                    break
+            
+            if not has_ao_keys:
+                row = col.row(align=True)
+                row.separator()
+                row.label(text="Warning: No AO shapekeys detected (e.g., 'ambient_occlusion' or ending in '_ao')", icon="ERROR")
+                row = col.row(align=True)
+                row.separator()
+                row.label(text="AO baking will work but won't use any animated AO keys.")
+            
             row = col.row(align=True)
             row.separator()
             row.prop(context.scene, 'bake_illuminate_eyes', expand=True)

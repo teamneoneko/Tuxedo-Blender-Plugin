@@ -533,9 +533,9 @@ class BakeButton(bpy.types.Operator):
         viewer_node = tree.nodes.new(type="CompositorNodeComposite")
         try:
             tree.links.new(viewer_node.inputs["Alpha"], image_node.outputs["Alpha"])
-        except Exception:
-            # ignore any linking errors and continue
-            print("Error linking alpha input to viewer node")
+        except (RuntimeError, KeyError) as e:
+            # Alpha channel may not exist for this image type, continue without it
+            print(f"Warning: Could not link alpha input to viewer node for image '{image}': {e}")
             
         tree.links.new(viewer_node.inputs["Image"], filter_output)
 
@@ -883,6 +883,7 @@ class BakeButton(bpy.types.Operator):
                 context.scene.render.bake.margin_type = 'EXTEND'
 
         print('START BAKE')
+        self.report({'INFO'}, t('tuxedo_bake.progress.setup'))
         # Global options
         resolution = context.scene.bake_resolution
         steam_library_path = context.scene.bake_steam_library.replace("\\", "/")
@@ -896,6 +897,7 @@ class BakeButton(bpy.types.Operator):
         apply_keys = context.scene.bake_apply_keys
         optimize_solid_materials = context.scene.bake_optimize_solid_materials
         unwrap_angle = context.scene.bake_unwrap_angle
+        uvpackmaster_iterations = context.scene.bake_uvpackmaster_iterations
 
         # Tweaks for 'draft' quality
         draft_quality = context.scene.bake_use_draft_quality
@@ -981,6 +983,7 @@ class BakeButton(bpy.types.Operator):
             material_group_overrides[group_num] = settings_override
 
         # Tree-copy all meshes - exclude copy-only, and copy them just before export
+        self.report({'INFO'}, t('tuxedo_bake.progress.copying'))
         arm_copy = self.tree_copy(armature, None, collection, ignore_hidden,
                                   view_layer=context.view_layer, filter_func=not_copyonly)
 
@@ -1025,6 +1028,7 @@ class BakeButton(bpy.types.Operator):
 
         #first fix broken colors by adding their textures, then add the results of color only materials/solid textures to see if they need special UV treatment.
         #To detect and fix UV's for materials that are solid and don't need entire uv maps if all the textures are consistent throught. Also adds solid textures for BSDF's with default values but no texture
+        self.report({'INFO'}, t('tuxedo_bake.progress.materials'))
         solidmaterialnames = dict()
 
         #to store the colors for each pass for each solid material to apply to bake atlas later.
@@ -1095,6 +1099,7 @@ class BakeButton(bpy.types.Operator):
                             break #since we found our principled and did our stuff we can break the node scanning loop on this material.
 
         if generate_uvmap:
+            self.report({'INFO'}, t('tuxedo_bake.progress.uvmap'))
             bpy.ops.object.select_all(action='DESELECT')
             # Make copies of the currently render-active UV layer, name "Tuxedo UV"
             for obj in get_objects(collection.all_objects, {"MESH"}):
@@ -1145,9 +1150,19 @@ class BakeButton(bpy.types.Operator):
                         bpy.ops.object.mode_set(mode='OBJECT')
                         obj.data.uv_layers.active_index = idx
                 elif effective_uv == "UNMIRROR":
-                    # TODO: issue a warning if any source images don't use 'wrap'
-                    # Select all faces in +X
+                    # Check if any source images don't use 'wrap' extension mode
                     print("Un-mirroring source Tuxedo UV data")
+                    non_wrap_images = []
+                    for slot in obj.material_slots:
+                        if slot.material and slot.material.use_nodes:
+                            for node in slot.material.node_tree.nodes:
+                                if node.type == 'TEX_IMAGE' and node.image:
+                                    if node.extension != 'REPEAT':
+                                        non_wrap_images.append(node.image.name)
+                    if non_wrap_images:
+                        print(f"Warning: Unmirror mode detected images with non-REPEAT extension mode: {', '.join(set(non_wrap_images))}")
+                        print("This may cause visible seams. Consider setting image extension to 'Repeat' in the Shader Editor.")
+                    
                     uv_layer = (obj.data.uv_layers["Tuxedo UV Super"].data if
                                supersample_normals else
                                obj.data.uv_layers["Tuxedo UV"].data)
@@ -1318,15 +1333,16 @@ class BakeButton(bpy.types.Operator):
                             bpy.ops.object.mode_set(mode='EDIT')
                             
                             print("Group " +str(group) + " selected. Packing islands")
-                            # Give UVP a static number of iterations to do TODO: make this configurable?
-                            for _ in range(1, 3):
+                            # Give UVP iterations based on user setting
+                            for _ in range(uvpackmaster_iterations):
                                 bpy.ops.uvpackmaster3.pack(mode_id='pack.single_tile')
                             
                             #deselect mesh geometry in preperation for next group
                             bpy.ops.mesh.select_all(action='DESELECT')
                             bpy.ops.object.mode_set(mode='OBJECT')
                         
-                    except:
+                    except (AttributeError, RuntimeError) as e:
+                        print(f"UVPackmaster 3 not available or failed, trying UVPackmaster 2: {e}")
                         try:
                             context.scene.uvp2_props.normalize_islands = False
                             context.scene.uvp2_props.lock_overlapping_mode = ('0' if
@@ -1367,15 +1383,16 @@ class BakeButton(bpy.types.Operator):
                                 bpy.ops.object.mode_set(mode='EDIT')
                                 
                                 print("Group " +str(group) + " selected. Packing islands")
-                                # Give UVP a static number of iterations to do TODO: make this configurable?
-                                for _ in range(1, 3):
+                                # Give UVP iterations based on user setting
+                                for _ in range(uvpackmaster_iterations):
                                     bpy.ops.uvpackmaster2.uv_pack()
                                 
                                 #deselect mesh geometry in preperation for next group
                                 bpy.ops.mesh.select_all(action='DESELECT')
                                 bpy.ops.object.mode_set(mode='OBJECT')
                             
-                        except:
+                        except (AttributeError, RuntimeError) as e:
+                            print(f"UVPackmaster 2 not available or failed, falling back to default UV packing: {e}")
                             bpy.ops.object.mode_set(mode='EDIT')
                             bpy.ops.mesh.select_all(action='DESELECT')
                             context.view_layer.objects.active = obj
@@ -2053,6 +2070,7 @@ class BakeButton(bpy.types.Operator):
 
             if use_decimation:
                 # Decimate. If 'preserve seams' is selected, forcibly preserve seams (seams from islands, deselect seams)
+                self.report({'INFO'}, t('tuxedo_bake.progress.decimating').format(tris=int(platform.max_tris)))
                 context.scene.tuxedo_max_tris = int(platform.max_tris)
                 # Set context for operator
                 context.view_layer.objects.active = plat_arm_copy
@@ -2419,7 +2437,17 @@ class BakeButton(bpy.types.Operator):
 
                 
                 if pass_diffuse and diffuse_vertex_colors:
-                    # TODO: If we're not baking anything else in, remove all UV maps entirely
+                    # Remove UV maps if we're only using vertex colors (no other texture-based passes)
+                    using_textures = (pass_normal or pass_metallic or pass_smoothness or 
+                                     pass_emit or pass_alpha or pass_ao)
+                    
+                    if not using_textures:
+                        print(f"Removing UV maps from {obj.name} as only vertex colors are being used")
+                        # Remove all UV maps except any named "Detail Map"
+                        uv_layers_to_remove = [uv.name for uv in obj.data.uv_layers 
+                                               if "Detail Map" not in uv.name]
+                        for uv_name in uv_layers_to_remove:
+                            obj.data.uv_layers.remove(obj.data.uv_layers[uv_name])
 
                     # Update material preview
                     #tree.nodes.remove(diffusetexnode)
@@ -2564,12 +2592,14 @@ class BakeButton(bpy.types.Operator):
 
             for export_group in export_groups:
                 assert(all(obj_name in plat_collection.all_objects for obj_name in export_group[1]), export_group)
+                self.report({'INFO'}, t('tuxedo_bake.progress.exporting').format(format=export_format))
                 bpy.ops.object.select_all(action='DESELECT')
                 for obj in get_objects(plat_collection.all_objects):
                     if obj.name in export_group[1]:
                         obj.select_set(True)
                 if export_format == "FBX":
                     # Monkeypatch the FBX exporter to use 'tuxedoForcedExportName' instead of obj.name
+                    self.report({'INFO'}, t('tuxedo_bake.progress.exporting').format(format=export_format))
                     core.patch_fbx_exporter()
                     bpy.ops.export_scene.fbx(filepath=bpy.path.abspath("//Tuxedo Bake/" + platform_name + "/" + export_group[0] + ".fbx"), check_existing=False, filter_glob='*.fbx',
                                              use_selection=True,
@@ -2634,10 +2664,12 @@ class BakeButton(bpy.types.Operator):
                 bpy.data.objects.remove(obj, do_unlink=True)
 
             bpy.data.collections.remove(collection)
-        except:
-            print("huh couldn't delete the baking scenes. Oh well.")
+        except (RuntimeError, ReferenceError) as e:
+            print(f"Warning: Could not fully clean up baking scenes and collections: {e}")
+            print("This may leave some unused data in the blend file, but bake completed successfully.")
         
         #clean unused data
+        self.report({'INFO'}, t('tuxedo_bake.progress.cleanup'))
         if not is_unittest:
             bpy.ops.outliner.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 
