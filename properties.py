@@ -7,6 +7,15 @@ from .tools.tools import SRanipal_Labels
 
 from .tools.translate import t
 from .ui import tab_enums
+from .class_register import register_property
+
+def safe_register_class(cls):
+    """Register a class, handling the case where it's already registered"""
+    try:
+        register_class(cls)
+    except ValueError as e:
+        if "already registered" not in str(e):
+            raise
 
 #this is basically a constant, set at launch. There is no reason to need to set this otherwise unless explictly giving only the user the option to do so.
 #this is set via the __init__ file and reads the steam libraries via registry keys at launch, so it will always
@@ -234,25 +243,25 @@ class BakePlatformPropertyGroup(PropertyGroup):
 
 def register_properties():
     # Bake
-    Scene.bake_use_draft_quality = BoolProperty(
+    register_property(Scene, 'bake_use_draft_quality', BoolProperty(
         name='Draft Quality',
         description=t('Scene.draft_quality_desc'),
         default=False
-    )
+    ))
 
-    Scene.smart_decimate_preserve_objects = BoolProperty(
+    register_property(Scene, 'smart_decimate_preserve_objects', BoolProperty(
         name=t('Scene.preserve_objects.label'),
         description=t('Scene.preserve_objects.desc'),
         default=False
-    )
+    ))
 
-    Scene.bake_animation_weighting = BoolProperty(
+    register_property(Scene, 'bake_animation_weighting', BoolProperty(
         name=t('Scene.decimation_animation_weighting.label'),
         description=t('Scene.decimation_animation_weighting.desc'),
         default=True
-    )
+    ))
 
-    Scene.bake_animation_weighting_factor = FloatProperty(
+    register_property(Scene, 'bake_animation_weighting_factor', FloatProperty(
         name=t('Scene.decimation_animation_weighting_factor.label'),
         description=t('Scene.decimation_animation_weighting_factor.desc'),
         default=0.25,
@@ -261,21 +270,21 @@ def register_properties():
         step=0.05,
         precision=2,
         subtype='FACTOR'
-    )
+    ))
 
-    Scene.bake_animation_weighting_include_shapekeys = BoolProperty(
+    register_property(Scene, 'bake_animation_weighting_include_shapekeys', BoolProperty(
         name=t('Tools.anim_weight_incl_shapekeys.name'),
         description=t('Tools.anim_weight_incl_shapekeys.desc'),
         default=False
-    )
+    ))
     
     
-    register_class(BakePlatformPropertyGroup)
+    safe_register_class(BakePlatformPropertyGroup)
 
-    Scene.bake_platforms = CollectionProperty(
+    register_property(Scene, 'bake_platforms', CollectionProperty(
         type=BakePlatformPropertyGroup
-    )
-    Scene.bake_platform_index = IntProperty(default=0)
+    ))
+    register_property(Scene, 'bake_platform_index', IntProperty(default=0))
     
 
     Scene.bake_cleanup_shapekeys = BoolProperty(
@@ -309,7 +318,7 @@ def register_properties():
             min=0,
             max=30
         )
-    register_class(MaterialListGrouper)
+    safe_register_class(MaterialListGrouper)
 
     class MaterialGroupSettings(PropertyGroup):
         group_number: IntProperty(
@@ -331,7 +340,7 @@ def register_properties():
             ],
             default="INHERIT",
         )
-    register_class(MaterialGroupSettings)
+    safe_register_class(MaterialGroupSettings)
     
     
     

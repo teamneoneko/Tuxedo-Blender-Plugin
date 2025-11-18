@@ -3,8 +3,8 @@ import os
 from .bake import BakeAddCopyOnly, BakeAddProp, BakeButton, BakePresetAll, BakePresetDesktop, BakePresetGmod, BakePresetGmodPhong, BakePresetQuest, BakePresetSecondlife, BakeRemoveCopyOnly, BakeRemoveProp, BakeTutorialButton
 from .ui import BakePanel, Bake_Lod_Delete, Bake_Lod_New, Bake_Platform_Delete, Bake_Platform_List, Bake_Platform_New, Choose_Steam_Library, Open_GPU_Settings, ToolPanel, SmartDecimation, FT_Shapes_UL
 
-from .class_register import order_classes, classes
-from .properties import set_steam_library
+from .class_register import register_all, unregister_all
+from .properties import set_steam_library, register_properties
 
 
 import glob
@@ -17,7 +17,6 @@ for module_name in [ basename(f)[:-3] for f in modules if isfile(f) and not f.en
 modules = glob.glob(join(dirname(__file__), "tools/*.py"))
 for module_name in [ basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]:
     exec("from .tools import "+module_name)
-from .properties import register_properties
 from bpy.types import Scene
 from sys import platform
 from .ui_sections.advanced_platform_options import Bake_PT_advanced_platform_options
@@ -26,29 +25,10 @@ from . import globals
 
 
 def register():
-    print("========= STARTING TUXEDO REGISTRY =========")
-    order_classes()
-    for cls in classes:
-        try:
-            bpy.utils.register_class(cls)
-            try:
-                print("registered class "+cls.bl_label)
-            except Exception as e:
-                print("tried to register class with no label.")
-                print(e)
-        except ValueError as e1:
-            try:
-                print("failed to register "+cls.bl_label)
-                print(e1)
-            except Exception as e2:
-                print("tried to register class with no label.")
-                print(e1)
-                print(e2)
-    classes.clear()
+    register_all()
     # Properties
     register_properties()
     custom_icons()
-    print("========= TUXEDO REGISTRY FINISHED =========")
     #needs to be after registering properties, because it accesses a property - @989onan
     print("========= READING STEAM REGISTRY KEYS FOR GMOD =========")
     
@@ -110,20 +90,9 @@ def custom_icons():
 
 
 def unregister():
-    print("========= DEREGISTERING TUXEDO =========")
-    for cls in classes:
-        try:
-            bpy.utils.unregister_class(cls)
-        except ValueError:
-            pass
-
-    for i, ft_shape in enumerate(SRanipal_Labels):
-        delattr(Scene, "ft_shapekey_" + str(i))
-
-    for i, ft_shape in enumerate(SRanipal_Labels):
-        delattr(Scene, "ft_shapekey_enable_" + str(i))
-    print("========= DEREGISTERING TUXEDO FINISHED =========")
-    bpy.utils.previews.remove(globals.icons_dict)
+    unregister_all()
+    if hasattr(globals, 'icons_dict'):
+        bpy.utils.previews.remove(globals.icons_dict)
 
 if __name__ == '__main__':
     register()
