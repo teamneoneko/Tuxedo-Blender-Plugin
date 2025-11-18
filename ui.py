@@ -81,8 +81,27 @@ class ErrorNoSource_OT_Tuxedo(Operator):
 class Bake_Platform_List(UIList):
     bl_label = ""
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # TODO:? We could write some code to decide which icon to use here...
-        custom_icon = 'OBJECT_DATAMODE'
+        # Determine icon based on export format
+        icon_map = {
+            'FBX': 'CUBE',
+            'DAE': 'MESH_DATA',
+            'GMOD': 'GAME',
+            'SECONDLIFE': 'WORLD'
+        }
+        
+        # Try to determine format from item properties or name
+        custom_icon = 'OBJECT_DATAMODE'  # default
+        if hasattr(item, 'export_format'):
+            custom_icon = icon_map.get(item.export_format, 'OBJECT_DATAMODE')
+        elif 'Quest' in item.name or 'VRChat' in item.name:
+            custom_icon = 'VIEW_CAMERA'
+        elif 'Desktop' in item.name:
+            custom_icon = 'DESKTOP'
+        elif 'Gmod' in item.name or 'Garry' in item.name:
+            custom_icon = 'GAME'
+        elif 'Second Life' in item.name:
+            custom_icon = 'WORLD'
+        
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.label(text=item.name, icon = custom_icon)

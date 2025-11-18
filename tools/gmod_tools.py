@@ -125,12 +125,12 @@ class ConvertToValveButton(bpy.types.Operator):
                     print("finger chain "+bone.name.lower()+" started with a 0 bone and only has 3 bones, shifting the chain of bones so your hands work!")
                     try:
                         armature.data.bones[bone.name.lower().replace("0","2")].name = bone.name.lower().replace("0","3")
-                    except:
-                        pass
+                    except KeyError as e:
+                        print(f"Could not rename bone {bone.name.lower().replace('0','2')}: {e}")
                     try:
                         armature.data.bones[bone.name.lower().replace("0","1")].name = bone.name.lower().replace("0","2")
-                    except:
-                        pass
+                    except KeyError as e:
+                        print(f"Could not rename bone {bone.name.lower().replace('0','1')}: {e}")
                     bone.name = bone.name.lower().replace("0","1")
                 else:
                     print("It is assumed that the finger bone "+bone.name.lower()+" is a bone in your palm, since the total length of finger bones in this finger is 4.")
@@ -175,8 +175,8 @@ class ExportGmodPlayermodel(bpy.types.Operator):
         
         try:
             core.Set_Mode(context, "OBJECT")
-        except:
-            pass
+        except (RuntimeError, AttributeError) as e:
+            print(f"Could not set mode to OBJECT: {e}")
         # this is feilen's code
         def sanitized_name(orig_name):
             #sanitizing name since everything needs to be simple characters and "_"'s
@@ -216,8 +216,8 @@ class ExportGmodPlayermodel(bpy.types.Operator):
 
         try:
             core.Set_Mode(context, "OBJECT")
-        except:
-            pass
+        except (RuntimeError, AttributeError) as e:
+            print(f"Could not set mode to OBJECT: {e}")
         bpy.ops.object.select_all(action='DESELECT')
 
 
@@ -594,8 +594,8 @@ class ExportGmodPlayermodel(bpy.types.Operator):
                 obj.select_set(True)
                 try:
                     bpy.ops.object.shape_key_remove(all=True, apply_mix=False)
-                except:
-                    print("No shapekeys, skipping")
+                except (RuntimeError, AttributeError) as e:
+                    print(f"No shapekeys on {obj.name} or could not remove: {e}")
                 bpy.ops.object.select_all(action='DESELECT')
 
         for obj in physcoll.objects:
@@ -666,8 +666,8 @@ class ExportGmodPlayermodel(bpy.types.Operator):
                                 obj.vertex_groups.active_index = index
                                 bpy.ops.object.vertex_group_select()
                                 break
-                    except:
-                        print("failed to find vertex group "+bone+" On phys obj. Skipping.")
+                    except (RuntimeError, KeyError, IndexError) as e:
+                        print(f"Failed to find or select vertex group '{bone}' on phys obj: {e}. Skipping.")
                         continue
                     #duplicate and make convex hull then separate
                     try:
@@ -792,8 +792,8 @@ class ExportGmodPlayermodel(bpy.types.Operator):
                                 obj.vertex_groups.active_index = index
                                 bpy.ops.object.vertex_group_select()
                                 break
-                    except:
-                        print("failed to find vertex group "+bone+" On arms. Skipping.")
+                    except (RuntimeError, KeyError, IndexError) as e:
+                        print(f"Failed to find or select vertex group '{bonename}' on arms: {e}. Skipping.")
                         continue
                 bpy.ops.mesh.delete(type='VERT') #delete dem vertices so we have only arms.
                 core.Set_Mode(context, "OBJECT")

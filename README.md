@@ -86,7 +86,7 @@ For most people, all you'll have to do is:
 	- Bake currently works best with smooth normals. In 'Object Data Properties', under 'Normals', make sure 'Auto Smooth' is unchecked, and right-click your objects and set them to 'Shade Smooth'.
 - My model ends up with a lot of gray areas or wrong colors.
 	- It's best to run 'Remove Doubles' before baking. For PMD/PMX models, use PMD import with 'Remove Doubles' checked for best results.
-	- Reproject seems to work a lot better on 2.91 vs 2.83, try running it there for best results.
+	- Make sure you're using Blender 4.2.0 or later for best Reproject results.
 - The islands end up super tiny or some object is way too prioritized after baking.
 	- Apply scale for your objects.
 - One or more objects end up all one color/wrong after baking.

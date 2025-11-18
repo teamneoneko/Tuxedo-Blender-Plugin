@@ -83,13 +83,13 @@ def register_all():
             if "already registered" in str(e1):
                 try:
                     print(f"skipped already registered class {cls.bl_label}")
-                except:
-                    print(f"skipped already registered class")
+                except AttributeError:
+                    print(f"skipped already registered class (no label)")
             else:
                 try:
                     print("failed to register " + cls.bl_label)
                     print(e1)
-                except Exception as e2:
+                except AttributeError as e2:
                     print("tried to register class with no label.")
                     print(e1)
                     print(e2)
