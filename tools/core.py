@@ -14,7 +14,11 @@ import mathutils
 from ..globals import blender
 
 # Core is the file where simple and complex methods but not classes used by many things go
-# this stores how we do simple functions that happen multiple times, and may need version checking
+import re
+import copy
+
+# Core utility functions for Blender 5.0+
+# Contains helpers that may need version-specific behavior
 # because of this, DONT PUT CLASSES HERE.
 # Before you make your own method, check here for one that does the same thing, since it will save you time.
 
@@ -34,7 +38,7 @@ def get_tricount(obj):
     return len(bmesh_mesh.faces)
 
 def get_children_recursive(parent):
-    # Blender 4.2.0+ always has children_recursive
+    # Blender 5.0+ always has children_recursive
     return parent.children_recursive
 
 def apply_shapekey_to_basis(context: bpy.types.Context, obj: bpy.types.Object, shape_key_name: str, delete_old: bool = False):
@@ -408,7 +412,7 @@ def dup_and_split_weights_bones(context: bpy.types.Context, armature_obj: bpy.ty
 def join_meshes(context: bpy.types.Context, armature_name: str) -> None:
     """
     Join multiple meshes into a single mesh without using operator context.
-    This avoids "context is incorrect" errors in Blender 4.1+ by using low-level API
+    This avoids "context is incorrect" errors in Blender 5.0+ by using low-level API
     instead of bpy.ops which has stricter polling requirements.
     """
     try:
@@ -689,12 +693,8 @@ def duplicate_shapekey(string):
     else:
         return False
 
-def version_2_79_or_older():
-    # Always False for Blender 4.2.0+
-    return False
+# Version compatibility functions removed - plugin requires Blender 5.0+
 
-#this is done because the version our addon is made for may not be minor or patch specific. In this case, just check what we specify for our version
-#This allows us to specify "(4, 0)" and ignore any 4.0.x version patches. - @989onan
 def version_too_new():
     is_too_new = False
     for i in range(0,3):
@@ -728,29 +728,23 @@ def select_set_all_curmode(context=bpy.context,action='DESELECT'):
         bpy.ops.pose.select_all(action=action)
     
 def get_objects():
-    return bpy.context.scene.objects if version_2_79_or_older() else bpy.context.view_layer.objects
+    return bpy.context.view_layer.objects
 
 def set_active(obj, skip_sel=False):
     if not skip_sel:
         select(obj)
-    if version_2_79_or_older():
-        bpy.context.scene.objects.active = obj
-    else:
-        bpy.context.view_layer.objects.active = obj
+    bpy.context.view_layer.objects.active = obj
 
 def select(obj, sel=True):
     if sel:
         hide(obj, False)
-    if version_2_79_or_older():
-        obj.select = sel
-    else:
-        obj.select_set(sel)
+    obj.select_set(sel)
 
 def hide(obj, val=True):
     if hasattr(obj, 'hide'):
         obj.hide = val
-    if not version_2_79_or_older():
-        obj.hide_set(val)
+    # Always use hide_set in Blender 5.0+
+    obj.hide_set(val)
 
 def get_shapekeys_ft(self, context):
     return get_shapekeys(context, [], False, False)
