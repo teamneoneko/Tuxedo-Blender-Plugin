@@ -202,6 +202,8 @@
         "Bake.unwrap_angle.desc":"The angle Reproject uses when unwrapping. Larger angles yield less islands but more stretching and smaller does opposite",
         "Bake.translate_bone_names.label":"Translate bone names",
         "Bake.unwrap_angle.label":"Unwrap Angle",
+        "Bake.uvpackmaster_iterations.label":"UVPackmaster Iterations",
+        "Bake.uvpackmaster_iterations.desc":"Number of packing iterations for UVPackmaster (if available). Higher values improve packing quality but take longer. Default is 2.",
         "Bake.specular_alpha_channel.desc":"What to pack to the Alpha channel of Specularity",
         "Bake.apply_current_shapekeys.desc":"When selected, currently active shape keys will be applied to the basis. This is extremely beneficial to performance if your avatar is intended to 'default' to one shapekey",
         "Bake.premultiply_smoothness_w_ao.desc":"While not technically accurate, this avoids the 'shine effect' on obscured portions of your model",

@@ -237,9 +237,11 @@ class SmartDecimation(bpy.types.Operator):
         bpy.ops.mesh.select_mode(type="VERT")
         bpy.ops.mesh.select_all(action="SELECT")
 
-        # TODO: Fix decimation calculation when pinning seams
-        # TODO: Add ability to explicitly include/exclude vertices from decimation. So you
-        # can manually preserve loops
+        # Calculate adjusted decimation ratio when pinning seams or using animation weighting
+        # to account for vertices that are excluded from decimation
+        preserved_vert_count = 0
+        total_vert_count = len(mesh.data.vertices)
+        
         if self.preserve_seams:
             bpy.ops.mesh.select_all(action="DESELECT")
             bpy.ops.uv.seams_from_islands()
@@ -250,9 +252,14 @@ class SmartDecimation(bpy.types.Operator):
             for edge in me.edges:
                 if edge.use_seam:
                     edge.select = True
+                    # Count vertices on seams
+                    for vert_idx in edge.vertices:
+                        if me.vertices[vert_idx].select:
+                            preserved_vert_count += 1
 
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action="INVERT")
+            
         if animation_weighting:
             bpy.ops.mesh.select_all(action="DESELECT")
             bpy.ops.object.mode_set(mode='OBJECT')
@@ -260,14 +267,26 @@ class SmartDecimation(bpy.types.Operator):
             vgroup_idx = mesh.vertex_groups["Tuxedo Animation"].index
             weight_dict = {vertex.index: group.weight for vertex in me.vertices for group in vertex.groups if group.group == vgroup_idx}
             # We de-select a_w_f worth of polygons, so the remaining decimation must be done in decimation/(1-a_w_f) polys
-            selected_verts = sorted([v for v in me.vertices], key=lambda v: 0 - weight_dict.get(v.index, 0.0))[0:int(decimation * tris * animation_weighting_factor)]
+            animation_preserved_verts = int(decimation * tris * animation_weighting_factor)
+            selected_verts = sorted([v for v in me.vertices], key=lambda v: 0 - weight_dict.get(v.index, 0.0))[0:animation_preserved_verts]
+            preserved_vert_count += animation_preserved_verts
             for v in selected_verts:
                 v.select = True
 
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action="INVERT")
 
+        # Adjust decimation ratio to account for preserved vertices
+        # The ratio applies to vertices that can be decimated, not total vertices
+        decimatable_vert_ratio = (total_vert_count - preserved_vert_count) / total_vert_count if total_vert_count > 0 else 1.0
         effective_ratio = decimation if not animation_weighting else (decimation * (1-animation_weighting_factor))
+        
+        # Adjust ratio if vertices are being preserved
+        if preserved_vert_count > 0 and decimatable_vert_ratio > 0:
+            effective_ratio = effective_ratio / decimatable_vert_ratio
+            effective_ratio = min(1.0, effective_ratio)  # Cap at 1.0
+            print(f"Adjusted decimation ratio from {decimation:.4f} to {effective_ratio:.4f} to account for {preserved_vert_count} preserved vertices")
+        
         bpy.ops.mesh.decimate(ratio=effective_ratio,
                               #use_vertex_group=animation_weighting,
                               #vertex_group_factor=animation_weighting_factor,

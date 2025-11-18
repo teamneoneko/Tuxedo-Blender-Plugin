@@ -897,6 +897,7 @@ class BakeButton(bpy.types.Operator):
         apply_keys = context.scene.bake_apply_keys
         optimize_solid_materials = context.scene.bake_optimize_solid_materials
         unwrap_angle = context.scene.bake_unwrap_angle
+        uvpackmaster_iterations = context.scene.bake_uvpackmaster_iterations
 
         # Tweaks for 'draft' quality
         draft_quality = context.scene.bake_use_draft_quality
@@ -1149,9 +1150,19 @@ class BakeButton(bpy.types.Operator):
                         bpy.ops.object.mode_set(mode='OBJECT')
                         obj.data.uv_layers.active_index = idx
                 elif effective_uv == "UNMIRROR":
-                    # TODO: issue a warning if any source images don't use 'wrap'
-                    # Select all faces in +X
+                    # Check if any source images don't use 'wrap' extension mode
                     print("Un-mirroring source Tuxedo UV data")
+                    non_wrap_images = []
+                    for slot in obj.material_slots:
+                        if slot.material and slot.material.use_nodes:
+                            for node in slot.material.node_tree.nodes:
+                                if node.type == 'TEX_IMAGE' and node.image:
+                                    if node.extension != 'REPEAT':
+                                        non_wrap_images.append(node.image.name)
+                    if non_wrap_images:
+                        print(f"Warning: Unmirror mode detected images with non-REPEAT extension mode: {', '.join(set(non_wrap_images))}")
+                        print("This may cause visible seams. Consider setting image extension to 'Repeat' in the Shader Editor.")
+                    
                     uv_layer = (obj.data.uv_layers["Tuxedo UV Super"].data if
                                supersample_normals else
                                obj.data.uv_layers["Tuxedo UV"].data)
@@ -1322,8 +1333,8 @@ class BakeButton(bpy.types.Operator):
                             bpy.ops.object.mode_set(mode='EDIT')
                             
                             print("Group " +str(group) + " selected. Packing islands")
-                            # Give UVP a static number of iterations to do TODO: make this configurable?
-                            for _ in range(1, 3):
+                            # Give UVP iterations based on user setting
+                            for _ in range(uvpackmaster_iterations):
                                 bpy.ops.uvpackmaster3.pack(mode_id='pack.single_tile')
                             
                             #deselect mesh geometry in preperation for next group
@@ -1372,8 +1383,8 @@ class BakeButton(bpy.types.Operator):
                                 bpy.ops.object.mode_set(mode='EDIT')
                                 
                                 print("Group " +str(group) + " selected. Packing islands")
-                                # Give UVP a static number of iterations to do TODO: make this configurable?
-                                for _ in range(1, 3):
+                                # Give UVP iterations based on user setting
+                                for _ in range(uvpackmaster_iterations):
                                     bpy.ops.uvpackmaster2.uv_pack()
                                 
                                 #deselect mesh geometry in preperation for next group
@@ -2426,7 +2437,17 @@ class BakeButton(bpy.types.Operator):
 
                 
                 if pass_diffuse and diffuse_vertex_colors:
-                    # TODO: If we're not baking anything else in, remove all UV maps entirely
+                    # Remove UV maps if we're only using vertex colors (no other texture-based passes)
+                    using_textures = (pass_normal or pass_metallic or pass_smoothness or 
+                                     pass_emit or pass_alpha or pass_ao)
+                    
+                    if not using_textures:
+                        print(f"Removing UV maps from {obj.name} as only vertex colors are being used")
+                        # Remove all UV maps except any named "Detail Map"
+                        uv_layers_to_remove = [uv.name for uv in obj.data.uv_layers 
+                                               if "Detail Map" not in uv.name]
+                        for uv_name in uv_layers_to_remove:
+                            obj.data.uv_layers.remove(obj.data.uv_layers[uv_name])
 
                     # Update material preview
                     #tree.nodes.remove(diffusetexnode)

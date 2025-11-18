@@ -527,6 +527,14 @@ def register_properties():
         precision=1
     )
 
+    Scene.bake_uvpackmaster_iterations = IntProperty(
+        name=t("Bake.uvpackmaster_iterations.label"),
+        description=t("Bake.uvpackmaster_iterations.desc"),
+        default=2,
+        min=1,
+        max=10
+    )
+
     Scene.bake_steam_library = StringProperty(
         name='Steam Library', 
         default="C:\\Program Files (x86)\\Steam\\",
