@@ -12,7 +12,7 @@ from .class_register import wrapper_registry
 from .tools.translate import t
 from .tools import core
 
-# Blender 4.2.0+ constants
+# Blender 5.0+ constants
 EMISSION_INPUT = "Emission Color"
 SPECULAR_INPUT = "Specular IOR Level"
 
@@ -48,7 +48,8 @@ def autodetect_passes(self, context, item, tricount, platform, use_phong=False):
     for obj in objects:
         for slot in obj.material_slots:
             if slot.material:
-                if not slot.material.use_nodes or not slot.material.node_tree:
+                # All materials use nodes in Blender 5.0+
+                if not slot.material.node_tree:
                     self.report({'ERROR'}, t('tuxedo_bake.warn_missing_nodes'))
                     return {'FINISHED'}
                 tree = slot.material.node_tree
@@ -380,8 +381,8 @@ class BakeButton(bpy.types.Operator):
                 continue
             for slot in obj.material_slots:
                 if slot.material:
-                    if not slot.material.use_nodes:
-                        return False
+                    # All materials use nodes in Blender 5.0+
+                    pass
                 else:
                     if len(obj.material_slots) == 1:
                         return False
@@ -470,9 +471,7 @@ class BakeButton(bpy.types.Operator):
                         bake_node.inputs["Base Color"].default_value = [0., 0., 0., 1.]
                     else:
                         bake_node.inputs["Base Color"].default_value = [1., 1., 1., 1.]
-                    if bpy.app.version < (4, 0, 0):
-                        bake_node.inputs["Subsurface"].default_value = 0.0
-                    elif flat_ior:
+                    if flat_ior:
                         bake_node.inputs["IOR"].default_value = 1.0 # Without this, diffuse color gets all messed up
                     bake_node.inputs["Metallic"].default_value = 0.0
                     bake_node.inputs[SPECULAR_INPUT].default_value = 0.5
@@ -497,9 +496,14 @@ class BakeButton(bpy.types.Operator):
         for tree in desired_material_trees:
             for bake_node_name in [node.name for node in tree.nodes]:
                 bake_node = tree.nodes[bake_node_name]
-                if bake_node.type == "BSDF_PRINCIPLED" and bake_node.name[-5:] == ".BAKE":
+                if bake_node.type == "BSDF_PRINCIPLED" and bake_node.name.endswith(".BAKE"):
                     # we've found a bake node, restore the outputs to their rightful owner and del
-                    node = tree.nodes[bake_node.name[:-5]]
+                    original_name = bake_node.name[:-5]  # Remove ".BAKE" suffix
+                    if original_name not in tree.nodes:
+                        # Original node doesn't exist, just remove the bake node
+                        tree.nodes.remove(bake_node)
+                        continue
+                    node = tree.nodes[original_name]
 
                     # Make the bake BSDF take over all outputs
                     if bake_node.outputs["BSDF"].is_linked:
@@ -522,17 +526,25 @@ class BakeButton(bpy.types.Operator):
         bpy.data.images[image].save()
         bpy.data.images[image].colorspace_settings.name = 'sRGB'
         # set up compositor
-        context.scene.use_nodes = True
-        tree = context.scene.node_tree
+        # Blender 5.0: scene.use_nodes is deprecated, create compositing node tree if needed
+        if context.scene.compositing_node_group is None:
+            tree = bpy.data.node_groups.new("TuxedoBakeComp", "CompositorNodeTree")
+            context.scene.compositing_node_group = tree
+            # Create output socket for the compositor
+            tree.interface.new_socket(name="Image", in_out="OUTPUT", socket_type="NodeSocketColor")
+        else:
+            tree = context.scene.compositing_node_group
         for node in tree.nodes:
             tree.nodes.remove(node)
         image_node = tree.nodes.new(type="CompositorNodeImage")
         image_node.image = bpy.data.images[image]
         filter_input, filter_output = filter_create(context, tree, matgroupnum)
         tree.links.new(filter_input, image_node.outputs["Image"])
-        viewer_node = tree.nodes.new(type="CompositorNodeComposite")
+        # Blender 5.0: Use NodeGroupOutput instead of CompositorNodeComposite
+        viewer_node = tree.nodes.new(type="NodeGroupOutput")
         try:
-            tree.links.new(viewer_node.inputs["Alpha"], image_node.outputs["Alpha"])
+            if "Alpha" in viewer_node.inputs:
+                tree.links.new(viewer_node.inputs["Alpha"], image_node.outputs["Alpha"])
         except (RuntimeError, KeyError) as e:
             # Alpha channel may not exist for this image type, continue without it
             print(f"Warning: Could not link alpha input to viewer node for image '{image}': {e}")
@@ -558,10 +570,11 @@ class BakeButton(bpy.types.Operator):
         return denoise_node.inputs["Image"], denoise_node.outputs["Image"]
 
     def sharpen_create(context, tree, matgroupnum):
-        sharpen_node = tree.nodes.new(type="CompositorNodeFilter")
-        sharpen_node.filter_type = "SHARPEN"
-        sharpen_node.inputs["Fac"].default_value = 0.1
-        return sharpen_node.inputs["Image"], sharpen_node.outputs["Image"]
+        # CompositorNodeFilter was deprecated in Blender 5.0
+        # Use a simple passthrough as sharpening can be done post-process if needed
+        # Alternative: could use CompositorNodeConvolve with custom kernel for sharpening
+        reroute = tree.nodes.new(type="NodeReroute")
+        return reroute.inputs[0], reroute.outputs[0]
 
     def deselect_all_objects():
         bpy.ops.object.select_all(action='DESELECT')
@@ -649,7 +662,7 @@ class BakeButton(bpy.types.Operator):
         context.scene.render.bake.use_clear = clear and bake_type == 'NORMAL'
         context.scene.render.bake.use_selected_to_active = (bake_active != None)
         context.scene.render.bake.margin = bake_margin
-        context.scene.render.use_bake_multires = bake_multires
+        # use_bake_multires removed in Blender 5.0
         context.scene.render.bake.normal_space = normal_space
         bpy.ops.object.bake(type=bake_type,
                             # pass_filter=bake_pass_filter,
@@ -1154,7 +1167,8 @@ class BakeButton(bpy.types.Operator):
                     print("Un-mirroring source Tuxedo UV data")
                     non_wrap_images = []
                     for slot in obj.material_slots:
-                        if slot.material and slot.material.use_nodes:
+                        # All materials use nodes in Blender 5.0+
+                        if slot.material:
                             for node in slot.material.node_tree.nodes:
                                 if node.type == 'TEX_IMAGE' and node.image:
                                     if node.extension != 'REPEAT':
@@ -2100,7 +2114,7 @@ class BakeButton(bpy.types.Operator):
                     bpy.data.materials.remove(mat, do_unlink=True)
                 # create material
                 mat = bpy.data.materials.new(name="Tuxedo Baked " + platform_name + "_" + str(group_num))
-                mat.use_nodes = True
+                # All materials use nodes in Blender 5.0+
                 mat.use_backface_culling = True
                 # add a normal map and image texture to connect the world texture, if it exists
                 tree = mat.node_tree
@@ -2131,7 +2145,7 @@ class BakeButton(bpy.types.Operator):
                 vmtfile = "\"VertexlitGeneric\"\n{\n    \"$surfaceprop\" \"Flesh\""
                 
                 if pass_alpha:
-                    # Ensure baked alpha is RGB-only, changed in 3.3
+                    # Ensure baked alpha is RGB-only
                     pixel_buffer = img_channels_as_nparray("SCRIPT_alpha"+ str(group_num)+".png")
                     pixel_buffer[3:] = 1.0
                     nparray_channels_to_img("SCRIPT_alpha"+ str(group_num)+".png", pixel_buffer)
@@ -2345,10 +2359,7 @@ class BakeButton(bpy.types.Operator):
                     if obj.data.vertex_colors is not None and len(obj.data.vertex_colors) > 0:
                         while len(obj.data.vertex_colors) > 0:
                             context.view_layer.objects.active = obj
-                            if bpy.app.version < (3, 4, 0):
-                                bpy.ops.mesh.vertex_color_remove()
-                            else:
-                                bpy.ops.geometry.color_attribute_remove()
+                            bpy.ops.geometry.color_attribute_remove()
 
                 # Update generated material to preview all of our passes
                 if pass_normal:
@@ -2360,10 +2371,12 @@ class BakeButton(bpy.types.Operator):
                     metallictexnode.image = bpy.data.images[platform_img("metallic"+str(group_num))]
                     metallictexnode.location.x -= 300
                     metallictexnode.location.y += 200
-                    seprgbnode = tree.nodes.new("ShaderNodeSeparateRGB")
+                    # Blender 5.0: Use ShaderNodeSeparateColor instead of ShaderNodeSeparateRGB
+                    seprgbnode = tree.nodes.new("ShaderNodeSeparateColor")
+                    seprgbnode.mode = 'RGB'
 
-                    tree.links.new(seprgbnode.inputs["Image"], metallictexnode.outputs["Color"])
-                    tree.links.new(bsdfnode.inputs["Metallic"], seprgbnode.outputs["R"])
+                    tree.links.new(seprgbnode.inputs["Color"], metallictexnode.outputs["Color"])
+                    tree.links.new(bsdfnode.inputs["Metallic"], seprgbnode.outputs["Red"])
                 if pass_diffuse:
                     diffusetexnode = tree.nodes.new("ShaderNodeTexImage")
                     diffusetexnode.image = bpy.data.images[platform_img("diffuse"+str(group_num))]
@@ -2388,15 +2401,17 @@ class BakeButton(bpy.types.Operator):
                             aotexnode.location.y += 800
                             tree.links.new(multiplytexnode.inputs[0], aotexnode.outputs["Color"])
 
-                        mixnode = tree.nodes.new("ShaderNodeMixRGB")
+                        # Blender 5.0: Use ShaderNodeMix instead of ShaderNodeMixRGB
+                        mixnode = tree.nodes.new("ShaderNodeMix")
+                        mixnode.data_type = 'RGBA'
                         mixnode.blend_type = "MULTIPLY"
-                        mixnode.inputs["Fac"].default_value = 1.0
+                        mixnode.inputs["Factor"].default_value = 1.0
                         mixnode.location.x -= 200
                         mixnode.location.y += 700
-                        tree.links.new(mixnode.inputs["Color1"], multiplytexnode.outputs["Value"])
-                        tree.links.new(mixnode.inputs["Color2"], diffusetexnode.outputs["Color"])
+                        tree.links.new(mixnode.inputs["A"], multiplytexnode.outputs["Value"])
+                        tree.links.new(mixnode.inputs["B"], diffusetexnode.outputs["Color"])
 
-                        tree.links.new(bsdfnode.inputs["Base Color"], mixnode.outputs["Color"])
+                        tree.links.new(bsdfnode.inputs["Base Color"], mixnode.outputs["Result"])
                     else:
                         tree.links.new(bsdfnode.inputs["Base Color"], diffusetexnode.outputs["Color"])
                 if pass_smoothness:
@@ -2497,8 +2512,6 @@ class BakeButton(bpy.types.Operator):
                     continue
                 for group_num, group in material_name_groups.items():
                     image = bpy.data.images[platform_img(bakepass+str(group_num))]
-                    if bpy.app.version < (4, 0, 0):
-                        context.scene.display_settings.display_device = 'None' if use_linear else 'sRGB'
                     context.scene.view_settings.view_transform = "Raw" if use_linear else "Standard"
                     image.save_render(bpy.path.abspath(image.filepath), scene=context.scene)
                     if export_format == "GMOD":

@@ -414,11 +414,10 @@ class BakePanel(Panel):
                 continue
             for slot in obj.material_slots:
                 if slot.material:
-                    if (not (slot.material.node_tree)):
+                    # All materials use nodes in Blender 5.0+
+                    if not slot.material.node_tree:
                         self.non_node_mat_names.add(slot.material.name)
                     else:
-                        if not slot.material.use_nodes:
-                            self.non_node_mat_names.add(slot.material.name)
                         if not any(node.type == "BSDF_PRINCIPLED" for node in slot.material.node_tree.nodes):
                             self.non_bsdf_mat_names.add(slot.material.name)
                         if len([node for node in slot.material.node_tree.nodes if node.type == "BSDF_PRINCIPLED"]) > 1:
@@ -532,15 +531,18 @@ class BakePanel(Panel):
                 row.label(text=f"enums: {tab_enums(self,context)}")
                 
             #bake warnings
-            if context.preferences.addons['cycles'].preferences.compute_device_type == 'NONE' and context.scene.bake_device == 'GPU':
+            cycles_addon = context.preferences.addons.get('cycles')
+            if cycles_addon and cycles_addon.preferences.compute_device_type == 'NONE' and context.scene.bake_device == 'GPU':
                 row = col.row(align=True)
                 row.label(text=t('BakePanel.warn_using_cpu'), icon="INFO")
                 row = col.row(align=True)
             import importlib.util
             if importlib.util.find_spec("cycles.properties") is not None:
-                cycles_addon: bpy.types.Addon = context.preferences.addons["cycles"].preferences
-                cycles_addon.layout = col
-                cycles_addon.draw(context)
+                cycles_addon_prefs = context.preferences.addons.get("cycles")
+                if cycles_addon_prefs:
+                    cycles_addon_prefs = cycles_addon_prefs.preferences
+                    cycles_addon_prefs.layout = col
+                    cycles_addon_prefs.draw(context)
             else:
                 row = col.row(align=True)
                 row.label(text=t('BakePanel.warn_no_cycles_addon'), icon="INFO")
